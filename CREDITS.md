@@ -29,15 +29,22 @@
 
 ---
 
-## 2. 计划使用的车辆资产（CC0）
+## 2. 已使用的车辆资产（CC0）
 
-以下资产已选定为「全低模 CC0」路线。**标记为「已下载」的仅存在于本地临时目录，尚未提交进仓库。**
+以下资产已选定为「全低模 CC0」路线，转换产物已提交到 `assets/cars/`。原始下载包不进入仓库。
 
 | 资产 | 作者 / 来源 | 许可 | 面数 | 状态 |
 | --- | --- | --- | --- | --- |
-| Kenney Car Kit | [Kenney](https://kenney.nl/assets/car-kit) | **CC0 1.0** | `race-future` 约 2,068 | ✅ 已下载并验证 |
+| Kenney Car Kit | [Kenney](https://kenney.nl/assets/car-kit) | **CC0 1.0** | `race-future` 约 2,068 | ✅ 已转换入库 |
+| Grab3D Race Car | [Grab3D](https://grab3d.com/models/vehicles/race-car/) | **CC0 1.0** | 19,440 | ✅ 已转换入库 |
 | Quaternius Cars Pack | [Quaternius](https://quaternius.com/packs/cars.html) | **CC0 1.0** | 低模（8 辆） | 待下载 |
-| Grab3D Race Car | [Grab3D](https://grab3d.com/models/vehicles/race-car/) | **CC0 1.0** | 19,440 | 待下载 |
+
+**入库路径**：
+
+- `assets/cars/kenney-race-future/` — `model.json`、`textures/colormap.png`、`LICENSE.txt`
+- `assets/cars/grab3d-race-car/` — `model.json`、`textures/race-car_body_basecolor.jpg`、`LICENSE.txt`
+
+CC0 不强制署名，但本项目仍在此登记，感谢作者。
 
 CC0 不强制署名，但本项目仍在此登记，感谢作者。
 

@@ -36,26 +36,28 @@
 
 ---
 
-## M1 · 资产管线（下一步）
+## M1 · 资产管线（原型完成）
 
 目标：让一辆 CC0 低模车以正确尺寸、朝向和材质跑进现有游戏。
 
-- [ ] 编写 `tools/obj2json.py`：OBJ + MTL → 自定义紧凑 JSON
-- [ ] 支持三角化、Y-up、单位缩放、材质分组
-- [ ] 编写运行时加载器（`bkcore/threejs/`），输出旧版 `THREE.Geometry`
-- [ ] 接入 Grab3D Race Car 或 Kenney `race-future` 作为测试车
+- [x] 编写 `tools/obj2json.py`：OBJ + MTL → 自定义紧凑 JSON
+- [x] 支持三角化、Y-up、单位缩放、材质分组
+- [x] 编写运行时加载器（`bkcore/threejs/StaticModelLoader.js`），输出旧版 `THREE.Geometry`
+- [x] 接入 Grab3D Race Car 与 Kenney `race-future` 作为测试车
 - [ ] 适配 `ShipControls.js` 的尺寸、碰撞半径、相机偏移
-- [ ] 保留原飞船作为 fallback
-- [ ] 写一份资产导入说明
+- [x] 保留原飞船作为 fallback（主游戏尚未替换）
+- [x] 写一份资产导入说明（`tools/README.md`、`assets/README.md`）
 
 **验收**：
 
-- 新车辆在 Cityscape 占位赛道可正常驾驶、碰撞、氮气。
-- 单车 draw call 增量 ≤ 10。
-- 加载时间 ≤ 2 秒（本地）。
-- 原始 `.obj` / `.mtl` / 贴图不进入运行时目录，只保留转换产物。
+- [x] 两辆车在 `tools/model-preview.html` 中正确加载、着色、缩放。
+- [x] 贴图、法线、顶点色正确显示。
+- [x] 原始 `.obj` / `.mtl` / 下载包不进入仓库，只保留转换产物。
+- [ ] 新车辆在 Cityscape 占位赛道可正常驾驶、碰撞、氮气。
+- [x] 单车 draw call 增量 ≤ 10（Grab3D 2 个 mesh，Kenney 1 个 mesh）。
+- [ ] 加载时间 ≤ 2 秒（待接入主游戏后测量）。
 
-**风险**：旧版 `Geometry` 与法线/UV 兼容性；OBJ 材质拆分过多导致 draw call 上升。
+**风险**：旧版 `Geometry` 与法线/UV 兼容性；OBJ 材质拆分过多导致 draw call 上升。r50 的 `THREE.Color(r,g,b)` 不生效，顶点色必须用 `setRGB` + `Face3.vertexColors`（已在加载器中处理）。
 
 ---
 

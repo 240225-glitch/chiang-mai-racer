@@ -14,9 +14,9 @@
 | 单人计时、同屏双人分屏、氮气、1/3/5 圈、暂停/重开、最佳成绩、中文结算 | ✅ 已完成并有回归验证 |
 | 车辆资产选型 | ✅ 已完成，确定「全低模 CC0」路线 |
 | 清迈地图方案 | ✅ 已确定「古城护城河环线」，全长约 6.54 km |
-| 旧版 Three.js 资产转换管线 | 🚧 方案设计完成，待实现 |
+| 旧版 Three.js 资产转换管线 | ✅ 原型完成：OBJ → JSON + 运行时加载器 + 预览页 |
 | 清迈赛道 | 🚧 待制作，当前仍为 Cityscape 占位 |
-| 新车辆接入 | 🚧 待制作 |
+| 新车辆接入主游戏 | 🚧 预览页已验证，待接入赛道 |
 
 > 当前 `main` 分支可以直接运行，但跑的还是旧赛道。清迈内容会按 [路线图](docs/ROADMAP.md) 逐步替换。
 
@@ -49,6 +49,22 @@ python -m http.server 8080 --bind 127.0.0.1
 然后打开 <http://127.0.0.1:8080/>。
 
 Windows 也可以直接双击 `start-game.bat`。
+
+## 模型预览
+
+资产管线自带一个独立预览页，用来验证转换后的车辆尺寸、朝向与材质：
+
+- <http://127.0.0.1:8080/tools/model-preview.html>
+- <http://127.0.0.1:8080/tools/model-preview.html?model=kenney>
+
+当前已转换两辆 CC0 车：
+
+| 资产 | 面数 | 尺寸（m） |
+| --- | --- | --- |
+| Grab3D Race Car | 19,440 | 1.92 × 1.02 × 5.28 |
+| Kenney `race-future` | 2,068 | 1.99 × 1.38 × 4.40 |
+
+转换脚本与格式说明见 [tools/README.md](tools/README.md) 与 [docs/ENGINE.md](docs/ENGINE.md)。
 
 ## 操作方式
 
@@ -131,6 +147,8 @@ racing-game/
 ├─ geometries/                # 赛道几何
 ├─ textures/                  # 贴图（低清）
 ├─ textures.full/             # 贴图（全尺寸，可替换 textures/）
+├─ assets/                    # 运行时资产（cmr-static-v1 JSON + 贴图）
+├─ tools/                     # 转换脚本与模型预览页
 ├─ docs/                      # 设计、路线图、资产与参考文档
 ├─ CREDITS.md                 # 第三方署名
 └─ LICENSE                    # MIT

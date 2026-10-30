@@ -15,6 +15,25 @@
 | 材质 | `MeshLambertMaterial` / `MeshPhongMaterial`，无 PBR |
 | 目标 | WebGL 1，桌面浏览器 |
 
+### 实现状态（2026-10-30）
+
+- ✅ `tools/obj2json.py`：OBJ + MTL → `cmr-static-v1`，支持三角化、缩放、旋转、居中、材质合并、纹理复制。
+- ✅ `bkcore/threejs/StaticModelLoader.js`：运行时加载，构建 `THREE.Geometry` + `MeshPhongMaterial`。
+- ✅ `tools/model-preview.html`：独立预览页，支持拖拽旋转 / 滚轮缩放。
+- ✅ 已转换并验证两辆车：
+  - Grab3D Race Car：19,440 tris，2 materials / 2 meshes，1.92 × 1.02 × 5.28 m
+  - Kenney `race-future`：2,068 tris，1 material / 1 mesh，1.99 × 1.38 × 4.40 m
+- ⬜ 接入 `ShipControls.js` / 主游戏赛道。
+
+### r50 兼容性要点
+
+- `THREE.Color(r, g, b)` **不生效**：r50 的构造函数只接受一个十六进制参数。
+  顶点色必须用 `color.setRGB(r, g, b)`，并写入 `Face3.vertexColors`；
+  只写 `geometry.colors` 不会被渲染器使用。
+- `THREE.UV` 仍存在（现代版本已改为 `Vector2`），加载器使用 `THREE.UV`。
+- `THREE.ImageUtils.loadTexture` 可用；没有 `TextureLoader`。
+- 没有 `InstancedMesh`，重复几何必须合并。
+
 ### 关键代码位置
 
 | 文件 | 职责 |
@@ -122,6 +141,7 @@
 - `positions` / `normals` / `uvs` 用扁平数组，避免大量对象。
 - `indices` 用三的倍数；加载时写入 `THREE.Face3`。
 - 每个 `mesh` 对应一个材质，保证 draw call 可控。
+- `colors` 为可选顶点色数组（每顶点 3 个分量）；加载器会写入 `Face3.vertexColors`。
 - `bounds` 用于碰撞与相机，不依赖运行时计算。
 
 ### 3.3 运行时加载器

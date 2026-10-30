@@ -19,9 +19,24 @@
 
 | 资产 | 许可 | 面数 | 格式 | 状态 | 用途 |
 | --- | --- | --- | --- | --- | --- |
-| **Grab3D Race Car** | CC0 1.0 | 19,440 | GLB / FBX / Blend / OBJ | 待下载 | 主赛车（比例真实，约 1.92 × 5.28 × 1.02 m） |
-| **Kenney Car Kit** | CC0 1.0 | `race-future` 约 2,068 | FBX / OBJ / glTF | ✅ 已下载验证 | 主车备选 / 对手车 |
+| **Grab3D Race Car** | CC0 1.0 | 19,440 | GLB / FBX / Blend / OBJ | ✅ 已入库（转换产物） | 主赛车（比例真实，约 1.92 × 5.28 × 1.02 m） |
+| **Kenney Car Kit** | CC0 1.0 | `race-future` 约 2,068 | FBX / OBJ / glTF | ✅ 已入库（转换产物） | 主车备选 / 对手车 |
 | **Quaternius Cars Pack** | CC0 1.0 | 低模（8 辆） | FBX / OBJ / Blend | 待下载 | 交通车 / 对手车 |
+
+**已入库文件**：
+
+```text
+assets/cars/grab3d-race-car/
+  model.json          # 19,440 tris / 2 materials / 2 meshes
+  textures/race-car_body_basecolor.jpg
+  LICENSE.txt
+assets/cars/kenney-race-future/
+  model.json          # 2,068 tris / 1 material / 1 mesh
+  textures/colormap.png
+  LICENSE.txt
+```
+
+> 原始下载包在 `assets-src/`，已被 `.gitignore` 忽略，不进入仓库。
 
 **Kenney Car Kit 可用车型**（45+ 模型中与赛道相关的部分）：
 

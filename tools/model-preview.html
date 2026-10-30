@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Static Model Preview · Chiang Mai Racer</title>
+<style>
+    html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0b0f13;
+        color: #e8eef4;
+        font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    canvas {
+        display: block;
+    }
+
+    #hud {
+        position: fixed;
+        top: 18px;
+        left: 18px;
+        z-index: 10;
+        max-width: 380px;
+        padding: 16px 18px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        background: rgba(10, 15, 20, 0.78);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    #hud h1 {
+        margin: 0 0 6px;
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+
+    #hud p {
+        margin: 4px 0;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #9fb0c0;
+    }
+
+    #hud strong {
+        color: #e8eef4;
+        font-weight: 600;
+    }
+
+    #hud select,
+    #hud label {
+        margin-top: 10px;
+        font-size: 12px;
+    }
+
+    #hud select {
+        width: 100%;
+        padding: 7px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 8px;
+        background: #141b22;
+        color: #e8eef4;
+        outline: none;
+    }
+
+    #hud label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #9fb0c0;
+        cursor: pointer;
+    }
+
+    #error {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        z-index: 20;
+        display: none;
+        max-width: 640px;
+        padding: 18px 22px;
+        transform: translate(-50%, -50%);
+        border: 1px solid #ff6b6b;
+        border-radius: 10px;
+        background: rgba(40, 12, 12, 0.95);
+        color: #ffd7d7;
+        font-size: 13px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+    }
+
+    #loading {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        z-index: 15;
+        transform: translate(-50%, -50%);
+        color: #9fb0c0;
+        font-size: 14px;
+        letter-spacing: 0.08em;
+    }
+</style>
+</head>
+<body>
+
+<div id="hud">
+    <h1>Static Model Preview</h1>
+    <p>验证 <code>cmr-static-v1</code> 资产管线 · Three.js r50dev</p>
+    <p id="meta">加载中…</p>
+    <select id="model-select">
+        <option value="grab3d">Grab3D Race Car · CC0 · 19,440 tris</option>
+        <option value="kenney">Kenney race-future · CC0 · 2,068 tris</option>
+    </select>
+    <label>
+        <input id="auto-rotate" type="checkbox" checked>
+        自动旋转
+    </label>
+    <p>拖拽旋转 · 滚轮缩放</p>
+</div>
+
+<div id="loading">LOADING…</div>
+<div id="error"></div>
+
+<script src="../libs/Three.dev.js"></script>
+<script src="../bkcore/threejs/StaticModelLoader.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    var MODELS = {
+        grab3d: {
+            label: 'Grab3D Race Car',
+            url: '../assets/cars/grab3d-race-car/model.json'
+        },
+        kenney: {
+            label: 'Kenney race-future',
+            url: '../assets/cars/kenney-race-future/model.json'
+        }
+    };
+
+    var requestedModel = 'grab3d';
+    if (window.location.search) {
+        var match = /[?&]model=([^&]+)/.exec(window.location.search);
+        if (match && MODELS[match[1]]) {
+            requestedModel = match[1];
+        }
+    }
+
+    var renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x0b0f13, 1);
+    document.body.appendChild(renderer.domElement);
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(
+        45,
+        window.innerWidth / window.innerHeight,
+        0.05,
+        2000
+    );
+
+    scene.add(new THREE.AmbientLight(0x8fa3b8, 0.9));
+
+    var keyLight = new THREE.DirectionalLight(0xfff1de, 1.25);
+    keyLight.position.set(6, 10, 8);
+    scene.add(keyLight);
+
+    var fillLight = new THREE.DirectionalLight(0x7fb6ff, 0.45);
+    fillLight.position.set(-8, 4, -7);
+    scene.add(fillLight);
+
+    var rimLight = new THREE.DirectionalLight(0xffc28a, 0.35);
+    rimLight.position.set(0, 3, -10);
+    scene.add(rimLight);
+
+    var ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(60, 60, 1, 1),
+        new THREE.MeshLambertMaterial({ color: 0x141a20 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+
+    var shadow = new THREE.Mesh(
+        new THREE.PlaneGeometry(1, 1, 1, 1),
+        new THREE.MeshBasicMaterial({
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.3,
+            depthWrite: false
+        })
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.005;
+    scene.add(shadow);
+
+    var currentModel = null;
+    var currentStats = null;
+    var center = new THREE.Vector3(0, 0.5, 0);
+    var radius = 3;
+    var distance = 9;
+
+    var theta = Math.PI * 0.22;
+    var phi = Math.PI * 0.38;
+    var autoRotate = true;
+    var dragging = false;
+    var lastX = 0;
+    var lastY = 0;
+
+    var metaEl = document.getElementById('meta');
+    var loadingEl = document.getElementById('loading');
+    var errorEl = document.getElementById('error');
+    var selectEl = document.getElementById('model-select');
+    var autoEl = document.getElementById('auto-rotate');
+
+    function showError(message) {
+        errorEl.style.display = 'block';
+        errorEl.textContent = message;
+        loadingEl.style.display = 'none';
+    }
+
+    function updateMeta(model) {
+        var data = model.modelData || {};
+        var stats = data.stats || {};
+        var bounds = data.bounds || { min: [0, 0, 0], max: [1, 1, 1] };
+
+        metaEl.innerHTML =
+            '<strong>' + (data.name || 'model') + '</strong><br>' +
+            '许可证：' + (data.license || '未标注') + '<br>' +
+            '作者：' + (data.author || '未标注') + '<br>' +
+            '三角面：' + (stats.triangles || 0) +
+            ' · 顶点：' + (stats.vertices || 0) +
+            ' · 材质：' + (stats.materials || 0) +
+            '<br>尺寸：' +
+            (bounds.max[0] - bounds.min[0]).toFixed(2) + ' × ' +
+            (bounds.max[1] - bounds.min[1]).toFixed(2) + ' × ' +
+            (bounds.max[2] - bounds.min[2]).toFixed(2) + ' m';
+    }
+
+    function fitCamera(model) {
+        var bounds = model.modelData.bounds;
+        var min = bounds.min;
+        var max = bounds.max;
+
+        center.set(
+            (min[0] + max[0]) * 0.5,
+            (min[1] + max[1]) * 0.5,
+            (min[2] + max[2]) * 0.5
+        );
+
+        var dx = max[0] - min[0];
+        var dy = max[1] - min[1];
+        var dz = max[2] - min[2];
+        radius = 0.5 * Math.sqrt(dx * dx + dy * dy + dz * dz);
+        distance = Math.max(radius * 2.6, 2.5);
+
+        shadow.position.x = center.x;
+        shadow.position.z = center.z;
+        shadow.scale.x = Math.max(dx, 1) * 1.35;
+        shadow.scale.y = Math.max(dz, 1) * 1.15;
+    }
+
+    function updateCamera() {
+        camera.position.x = center.x + distance * Math.sin(phi) * Math.sin(theta);
+        camera.position.y = center.y + distance * Math.cos(phi);
+        camera.position.z = center.z + distance * Math.sin(phi) * Math.cos(theta);
+        camera.lookAt(center);
+    }
+
+    function loadModel(key) {
+        var entry = MODELS[key] || MODELS.grab3d;
+        loadingEl.style.display = 'block';
+        loadingEl.textContent = 'LOADING…';
+        errorEl.style.display = 'none';
+
+        if (currentModel) {
+            scene.remove(currentModel);
+            currentModel = null;
+        }
+
+        THREE.StaticModelLoader.load(
+            entry.url,
+            function (model) {
+                currentModel = model;
+                currentStats = model.modelData.stats;
+                scene.add(model);
+                fitCamera(model);
+                updateMeta(model);
+                loadingEl.style.display = 'none';
+            },
+            function (error) {
+                showError('加载失败：' + error.message + '\n\n请通过本地服务器打开本页，例如：\npython -m http.server 8080 --bind 127.0.0.1');
+            }
+        );
+    }
+
+    selectEl.addEventListener('change', function () {
+        loadModel(selectEl.value);
+    });
+
+    autoEl.addEventListener('change', function () {
+        autoRotate = autoEl.checked;
+    });
+
+    renderer.domElement.addEventListener('mousedown', function (event) {
+        dragging = true;
+        lastX = event.clientX;
+        lastY = event.clientY;
+    });
+
+    window.addEventListener('mousemove', function (event) {
+        if (!dragging) {
+            return;
+        }
+        var dx = event.clientX - lastX;
+        var dy = event.clientY - lastY;
+        lastX = event.clientX;
+        lastY = event.clientY;
+
+        theta -= dx * 0.008;
+        phi -= dy * 0.008;
+        phi = Math.max(0.08, Math.min(Math.PI - 0.08, phi));
+    });
+
+    window.addEventListener('mouseup', function () {
+        dragging = false;
+    });
+
+    renderer.domElement.addEventListener('wheel', function (event) {
+        event.preventDefault();
+        distance *= 1 + (event.deltaY > 0 ? 0.08 : -0.08);
+        distance = Math.max(radius * 1.2, Math.min(radius * 10, distance));
+    }, false);
+
+    window.addEventListener('resize', function () {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    var previousTime = Date.now();
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        var now = Date.now();
+        var delta = Math.min((now - previousTime) / 1000, 0.1);
+        previousTime = now;
+
+        if (autoRotate && !dragging) {
+            theta += delta * 0.35;
+        }
+
+        updateCamera();
+        renderer.render(scene, camera);
+    }
+
+    window.__preview = {
+        scene: scene,
+        renderer: renderer,
+        camera: camera,
+        getModel: function () { return currentModel; }
+    };
+
+    selectEl.value = requestedModel;
+    updateCamera();
+    loadModel(requestedModel);
+    animate();
+})();
+</script>
+</body>
+</html>
