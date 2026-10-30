@@ -1,17 +1,17 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
-    <title>HexGL by BKcore</title>
+    <title>HexGL · 本地极速赛车</title>
     <meta charset="utf-8">
-    <meta name="description" content="HexGL is a futuristic racing game built by Thibaut Despoulain (BKcore) using HTML5, Javascript and WebGL. Come challenge your friends on this fast-paced 3D game!">
+    <meta name="description" content="HexGL 本地版：一款基于 HTML5、JavaScript 和 WebGL 的未来反重力赛车游戏。">
     <meta property="og:title" content="HexGL, the HTML5 futuristic racing game." />
     <meta property="og:type" content="game" />
     <meta property="og:url" content="http://hexgl.bkcore.com/" />
     <meta property="og:image" content="http://hexgl.bkcore.com/image.png" />
     <meta property="og:site_name" content="HexGL by BKcore" />
     <meta property="fb:admins" content="1482017639" />
-    <link rel="icon" href="http://hexgl.bkcore.com/favicon.png" type="image/png">
-    <link rel="shortcut icon" href="http://hexgl.bkcore.com/favicon.png" type="image/png">
+    <link rel="icon" href="favicon.png" type="image/png">
+    <link rel="shortcut icon" href="favicon.png" type="image/png">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <link rel="stylesheet" href="css/multi.css" type="text/css" charset="utf-8">
     <link rel="stylesheet" href="css/fonts.css" type="text/css" charset="utf-8">
@@ -29,17 +29,6 @@
         width: 100%;
       }
     </style>
-    <script type="text/javascript">
-    //analytics
-    var _gaq = _gaq || [];
-    _gaq.push(['_setAccount', 'UA-26274524-4']);
-    _gaq.push(['_trackPageview']);
-    (function() {
-      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
-      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
-    })();
-    </script>
   </head>
 
   <body>
@@ -49,17 +38,25 @@
       </div>
       <div id="menucontainer">
         <div id="menu">
-          <div id="start">Start</div>
-          <div id="s-controlType">Controls: Keyboard</div>
-          <div id="s-quality">Quality: High</div>
-          <div id="s-hud">HUD: On</div>
-          <div id="s-godmode" style="display: none">Godmode: Off</div>
-          <div id="s-credits">Credits</div>
+          <div id="start">开始比赛</div>
+          <div id="s-controlType">操控：键盘</div>
+          <div id="s-quality">画质：极高</div>
+          <div id="s-hud">HUD：开</div>
+          <div id="s-laps">圈数：3 圈</div>
+          <div id="s-players">模式：单人</div>
+          <div id="s-difficulty">难度：休闲</div>
+          <div id="s-godmode" style="display: none">上帝模式：关</div>
+          <div id="s-credits">制作名单</div>
+          <div id="best">最佳成绩：暂无记录</div>
         </div>
+      </div>
+      <div id="hint">
+        单人：↑ 加速 · ↓ 刹车 · ← → 转向 · A/D 空气刹车 · 空格/Shift 氮气
+        <br>双人：P1 使用 WASD + 左 Shift · P2 使用方向键 + 空格 · 红色加速带补充氮气
       </div>
     </div>
     <div id="step-2" style="display: none">
-      <div id="ctrl-help">Click/Touch to continue.</div>
+      <div id="ctrl-help">点击继续</div>
     </div>
     <div id="step-3" style="display: none">
       <div id="progressbar"></div>
@@ -67,20 +64,64 @@
     <div id="step-4" style="display: none">
       <div id="overlay"></div>
       <div id="main"></div>
+      <div id="split-divider"></div>
+      <div id="player-tags">
+        <div id="p1-tag">玩家 1 <span>WASD · Shift</span></div>
+        <div id="p2-tag">玩家 2 <span>方向键 · 空格</span></div>
+      </div>
+      <div id="boost-vignette"></div>
+      <div id="boost-vignette-p2"></div>
+      <div id="race-ui">
+        <div id="nitro-panel">
+          <div class="nitro-top"><span>氮气系统 · P1</span><span id="nitro-state">充能中</span></div>
+          <div class="nitro-bar"><div id="nitro-fill"></div></div>
+          <div class="nitro-key">空格 / Shift 释放 · 红色加速带补充</div>
+        </div>
+        <div id="nitro-panel-p2">
+          <div class="nitro-top"><span>氮气系统 · P2</span><span id="nitro-state-p2">充能中</span></div>
+          <div class="nitro-bar"><div id="nitro-fill-p2"></div></div>
+          <div class="nitro-key">空格 释放 · 红色加速带补充</div>
+        </div>
+      </div>
+      <div id="pause">
+        <div id="pause-box">
+          <div id="pause-kicker">RACE PAUSED</div>
+          <div id="pause-title">比赛暂停</div>
+          <div id="pause-sub">计时已停止</div>
+          <div class="game-actions">
+            <button class="game-btn primary" id="pause-resume">继续比赛 <span>P / Esc</span></button>
+            <button class="game-btn" id="pause-restart">重新开始 <span>R</span></button>
+            <button class="game-btn" id="pause-menu">返回主菜单</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div id="step-5" style="display: none">
+      <div id="go-kicker">RACE COMPLETE</div>
       <div id="time"></div>
-      <div id="ctrl-help">Click/Touch to continue.</div>
+      <div id="go-record" class="go-record good">完成比赛</div>
+      <div id="go-stats">
+        <div class="go-stat"><span id="go-label-best-lap">最佳单圈</span><b id="go-best-lap">--</b></div>
+        <div class="go-stat"><span id="go-label-mode">难度 / 圈数</span><b id="go-mode">--</b></div>
+        <div class="go-stat"><span id="go-label-best">历史最佳</span><b id="go-best">--</b></div>
+      </div>
+      <div id="go-laps"></div>
+      <div class="game-actions">
+        <button class="game-btn primary" id="go-restart">再来一局 <span>R</span></button>
+        <button class="game-btn" id="go-menu">返回主菜单</button>
+      </div>
+      <div id="ctrl-help">按 R 立即重开</div>
     </div>
     <div id="credits" style="display: none">
-      <h3>Code</h3>
-      <p><b>Concept and Development</b><br>Thibaut Despoulain (BKcore)</p>
-      <p><b>Contributors</b><br>townxelliot<br>mahesh.kk</p>
-      <p><b>Technologies</b><br>WebGL<br>JavaScript<br>CoffeeScript<br>Three.js<br>LeapMotion</p>
-      <h3>Graphics</h3>
-      <p><b>HexMKI base model</b><br>Charnel</p>
-      <p><b>Track texture</b><br>Nobiax</p>
-      <h4>Click anywhere to continue.</h4>
+      <h3>代码</h3>
+      <p><b>概念与开发</b><br>Thibaut Despoulain (BKcore)</p>
+      <p><b>贡献者</b><br>townxelliot<br>mahesh.kk</p>
+      <p><b>技术</b><br>WebGL<br>JavaScript<br>CoffeeScript<br>Three.js<br>LeapMotion</p>
+      <h3>图形</h3>
+      <p><b>HexMKI 基础模型</b><br>Charnel</p>
+      <p><b>赛道贴图</b><br>Nobiax</p>
+      <p style="color:#666">本地副本 · 原项目 HexGL（MIT 许可）<br>github.com/BKcore/HexGL</p>
+      <h4>点击任意处返回</h4>
     </div>
 
     <div id="leapinfo" style="display: none"></div>

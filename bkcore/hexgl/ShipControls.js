@@ -16,6 +16,7 @@ bkcore.hexgl.ShipControls = function(ctx)
 	this.active = true;
 	this.destroyed = false;
 	this.falling = false;
+	this.fallTimer = 0;
 
 	this.dom = domElement;
 	this.mesh = null;
@@ -36,7 +37,9 @@ bkcore.hexgl.ShipControls = function(ctx)
 	this.repulsionLerp = 0.1;
 	this.collisionSpeedDecrease = 0.8;
 	this.collisionSpeedDecreaseCoef = 0.8;
-	this.maxShield = 1.0;
+	// 0-200 health (the HUD shows getShield(100)), enough to survive a
+	// firefight while still finishing the race.
+	this.maxShield = 2.0;
 	this.shieldDelay = 60;
 	this.shieldTiming = 0;
 	this.shieldDamage = 0.25;
@@ -51,7 +54,19 @@ bkcore.hexgl.ShipControls = function(ctx)
 	this.speed = 0.0;
 	this.speedRatio = 0.0;
 	this.boost = 0.0;
-	this.shield = 1.0;
+	this.nitro = 0.5;
+	this.nitroMax = 1.0;
+	this.nitroRegen = 0.05; // per second
+	this.nitroCost = 0.5;
+	this.nitroActive = 0.0; // seconds remaining
+	this.nitroDuration = 1.8;
+	this.nitroForceScale = 1.5;
+	this.nitroKeyPrev = false;
+	this.nitroRequest = false;
+	this.bulletRequest = false;
+	this.shellRequest = false;
+	this.onBoostPad = false;
+	this.shield = this.maxShield;
 	this.angular = 0.0;
 
 	this.currentVelocity = new THREE.Vector3();
@@ -109,7 +124,24 @@ bkcore.hexgl.ShipControls = function(ctx)
 		right: false,
 		ltrigger: false,
 		rtrigger: false,
+		nitro: false,
+		bullet: false,
+		shell: false,
 		use: false
+	};
+
+	// Per-instance key map. This lets two ships share the same document while
+	// listening to different physical keys (local split-screen).
+	this.controls = ctx.controls || {
+		forward: [38],
+		backward: [40],
+		left: [37],
+		right: [39],
+		ltrigger: [81, 65],
+		rtrigger: [68, 69],
+		nitro: [32, 16],
+		bullet: [70],
+		shell: [71]
 	};
 
 	this.collision = {
@@ -248,44 +280,46 @@ bkcore.hexgl.ShipControls = function(ctx)
 		lc.connect();
 	}
 
+	function isControlKey(code, name)
+	{
+		var list = self.controls[name];
+		return !!(list && list.indexOf(code) != -1);
+	}
+
+	function setControlState(code, down)
+	{
+		var used = false;
+
+		if(isControlKey(code, 'forward')) { self.key.forward = down; used = true; }
+		if(isControlKey(code, 'backward')) { self.key.backward = down; used = true; }
+		if(isControlKey(code, 'left')) { self.key.left = down; used = true; }
+		if(isControlKey(code, 'right')) { self.key.right = down; used = true; }
+		if(isControlKey(code, 'ltrigger')) { self.key.ltrigger = down; used = true; }
+		if(isControlKey(code, 'rtrigger')) { self.key.rtrigger = down; used = true; }
+		if(isControlKey(code, 'nitro')) { self.key.nitro = down; used = true; }
+		if(isControlKey(code, 'bullet')) { self.key.bullet = down; used = true; }
+		if(isControlKey(code, 'shell'))
+		{
+			// Shells fire once per press. Key auto-repeat must not turn them
+			// into a stream of projectiles.
+			if(down && !self.key.shell) self.shellRequest = true;
+			self.key.shell = down;
+			used = true;
+		}
+
+		return used;
+	}
+
 	function onKeyDown(event)
 	{
-		switch(event.keyCode)
-		{
-			case 38: /*up*/	self.key.forward = true; break;
-
-			case 40: /*down*/self.key.backward = true; break;
-
-			case 37: /*left*/self.key.left = true; break;
-
-			case 39: /*right*/self.key.right = true; break;
-
-			case 81: /*Q*/self.key.ltrigger = true; break;
-			case 65: /*A*/self.key.ltrigger = true; break;
-
-			case 68: /*D*/self.key.rtrigger = true; break;
-			case 69: /*E*/self.key.rtrigger = true; break;
-		}
+		// Prevent arrow-key scrolling and Space activating a focused button
+		// while still allowing the browser to process unrelated shortcuts.
+		if(setControlState(event.keyCode, true)) event.preventDefault();
 	};
 
 	function onKeyUp(event)
 	{
-		switch(event.keyCode)
-		{
-			case 38: /*up*/	self.key.forward = false; break;
-
-			case 40: /*down*/self.key.backward = false; break;
-
-			case 37: /*left*/self.key.left = false; break;
-
-			case 39: /*right*/self.key.right = false; break;
-
-			case 81: /*Q*/self.key.ltrigger = false; break;
-			case 65: /*A*/self.key.ltrigger = false; break;
-
-			case 68: /*D*/self.key.rtrigger = false; break;
-			case 69: /*E*/self.key.rtrigger = false; break;
-		}
+		if(setControlState(event.keyCode, false)) event.preventDefault();
 	};
 
 	domElement.addEventListener('keydown', onKeyDown, false);
@@ -299,6 +333,34 @@ bkcore.hexgl.ShipControls.prototype.control = function(threeMesh)
 	this.dummy.position = this.mesh.position;
 };
 
+bkcore.hexgl.ShipControls.prototype.clearKeys = function()
+{
+	for(var k in this.key)
+	{
+		if(Object.prototype.hasOwnProperty.call(this.key, k))
+			this.key[k] = false;
+	}
+	this.nitroKeyPrev = false;
+	this.nitroRequest = false;
+	this.bulletRequest = false;
+	this.shellRequest = false;
+};
+
+bkcore.hexgl.ShipControls.prototype.triggerNitro = function()
+{
+	this.nitroRequest = true;
+};
+
+bkcore.hexgl.ShipControls.prototype.triggerBullet = function()
+{
+	this.bulletRequest = true;
+};
+
+bkcore.hexgl.ShipControls.prototype.triggerShell = function()
+{
+	this.shellRequest = true;
+};
+
 bkcore.hexgl.ShipControls.prototype.reset = function(position, rotation)
 {
 	this.resetPos = position;
@@ -310,8 +372,16 @@ bkcore.hexgl.ShipControls.prototype.reset = function(position, rotation)
 	this.speed = 0.0;
 	this.speedRatio = 0.0;
 	this.boost = 0.0;
+	this.nitro = 0.5;
+	this.nitroActive = 0.0;
+	this.nitroKeyPrev = false;
+	this.nitroRequest = false;
+	this.onBoostPad = false;
 	this.shield = this.maxShield;
 	this.destroyed = false;
+	this.falling = false;
+	this.fallTimer = 0;
+	this.clearKeys();
 
 	this.dummy.position.copy(position);
 	this.quaternion.set(rotation.x, rotation.y, rotation.z, 1).normalize();
@@ -356,10 +426,7 @@ bkcore.hexgl.ShipControls.prototype.fall = function()
 	this.collision.left = false;
 	this.collision.right = false;
 	this.falling = true;
-	_this = this;
-	setTimeout(function(){
-		_this.destroyed = true;
-	}, 1500);
+	this.fallTimer = 1.5;
 }
 
 bkcore.hexgl.ShipControls.prototype.update = function(dt)
@@ -367,6 +434,16 @@ bkcore.hexgl.ShipControls.prototype.update = function(dt)
 	if(this.falling)
 	{
 		this.mesh.position.addSelf(this.fallVector);
+
+		// Count down inside the render loop instead of using setTimeout so
+		// pausing the race also freezes the fall (and the results screen
+		// cannot appear while the game is paused).
+		this.fallTimer -= dt / 60;
+		if(this.fallTimer <= 0)
+		{
+			this.fallTimer = 0;
+			this.destroyed = true;
+		}
 		return;
 	}
 
@@ -475,6 +552,7 @@ bkcore.hexgl.ShipControls.prototype.update = function(dt)
 	this.collisionPreviousPosition.copy(this.dummy.position);
 
 	this.boosterCheck(dt);
+	this.nitroCheck(dt);
 
 	//this.movement.multiplyScalar(dt);
 	//this.rotation.multiplyScalar(dt);
@@ -598,13 +676,47 @@ bkcore.hexgl.ShipControls.prototype.boosterCheck = function(dt)
 
 	var color = this.collisionMap.getPixel(x, z);
 
-	if(color.r == 255 && color.g < 127 && color.b < 127) {
-		bkcore.Audio.play('boost');
+	var onBoostPad = color.r == 255 && color.g < 127 && color.b < 127;
+	if(onBoostPad) {
+		if(!this.onBoostPad) {
+			this.nitro = Math.min(this.nitroMax, this.nitro + 0.25);
+			bkcore.Audio.play('boost');
+		}
 		this.boost = this.boosterSpeed;
 	}
+	this.onBoostPad = onBoostPad;
 
 	this.movement.z += this.boost * dt;
 }
+
+bkcore.hexgl.ShipControls.prototype.nitroCheck = function(dt)
+{
+	var dtSec = dt / 60;
+
+	var pressed = (this.key.nitro && !this.nitroKeyPrev) || this.nitroRequest;
+	this.nitroKeyPrev = this.key.nitro;
+	this.nitroRequest = false;
+
+	// Only charge and release nitro while actually racing (not during the
+	// countdown, pause overlay or results screen).
+	if(!this.active)
+		return;
+
+	this.nitro = Math.min(this.nitroMax, this.nitro + this.nitroRegen * dtSec);
+
+	if(pressed && this.nitroActive <= 0 && this.nitro >= this.nitroCost)
+	{
+		this.nitro -= this.nitroCost;
+		this.nitroActive = this.nitroDuration;
+		bkcore.Audio.play('boost');
+	}
+
+	if(this.nitroActive > 0)
+	{
+		this.nitroActive = Math.max(0, this.nitroActive - dtSec);
+		this.movement.z += this.boosterSpeed * this.nitroForceScale * dt;
+	}
+};
 
 bkcore.hexgl.ShipControls.prototype.collisionCheck = function(dt)
 {
@@ -685,6 +797,7 @@ bkcore.hexgl.ShipControls.prototype.collisionCheck = function(dt)
 		this.speed *= this.collisionSpeedDecrease;
 		this.speed *= (1-this.collisionSpeedDecreaseCoef*(1-collision.r/255));
 		this.boost = 0;
+		this.nitroActive = 0;
 
 		return true;
 	}
@@ -756,10 +869,15 @@ bkcore.hexgl.ShipControls.prototype.heightCheck = function(dt)
 		this.tiltTarget = Math.atan2(nheight-height, 5.0)*this.tiltScale;
 };
 
+bkcore.hexgl.ShipControls.prototype.getNitroBoost = function()
+{
+	return this.nitroActive > 0 ? this.boosterSpeed * this.nitroForceScale : 0;
+};
+
 bkcore.hexgl.ShipControls.prototype.getRealSpeed = function(scale)
 {
 	return Math.round(
-		(this.speed+this.boost)
+		(this.speed + this.boost + this.getNitroBoost())
 		* (scale == undefined ? 1 : scale)
 	);
 };
@@ -768,18 +886,29 @@ bkcore.hexgl.ShipControls.prototype.getRealSpeedRatio = function()
 {
 	return Math.min(
 		this.maxSpeed,
-		this.speed+this.boost
+		this.speed + this.boost + this.getNitroBoost()
 	) / this.maxSpeed;
 };
 
 bkcore.hexgl.ShipControls.prototype.getSpeedRatio = function()
 {
-	return (this.speed+this.boost)/ this.maxSpeed;
+	return (this.speed + this.boost + this.getNitroBoost()) / this.maxSpeed;
 };
 
 bkcore.hexgl.ShipControls.prototype.getBoostRatio = function()
 {
-	return this.boost / this.boosterSpeed;
+	return Math.min(1.6, (this.boost + this.getNitroBoost()) / this.boosterSpeed);
+};
+
+bkcore.hexgl.ShipControls.prototype.getNitroRatio = function()
+{
+	return Math.max(0, Math.min(1, this.nitro / this.nitroMax));
+};
+
+bkcore.hexgl.ShipControls.prototype.getNitroState = function()
+{
+	if(this.nitroActive > 0) return 'active';
+	return this.nitro >= this.nitroCost ? 'ready' : 'charging';
 };
 
 bkcore.hexgl.ShipControls.prototype.getShieldRatio = function()

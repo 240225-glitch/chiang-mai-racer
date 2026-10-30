@@ -117,6 +117,10 @@ bkcore.threejs.RenderManager.prototype.renderCurrent = function()
 		var delta = now - this.time;
 		this.time = now;
 
+		// Avoid huge physics steps after a tab switch or after the loop was
+		// paused (otherwise the ship could teleport on the first frame back).
+		if(delta > 100) delta = 100;
+
 		this.current.render.call(this.current, delta, this.renderer);
 	}
 	else console.warn('RenderManager: No current render defined.');

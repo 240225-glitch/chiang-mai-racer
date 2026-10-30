@@ -12,8 +12,8 @@ bkcore.hexgl.Gameplay = function(opts)
 {
 	var self = this;
 
-	this.startDelay = opts.hud == null ? 0 : 1000;
-	this.countDownDelay = opts.hud == null ? 1000 : 1500;
+	this.startDelay = opts.hud == null ? 0 : 800;
+	this.countDownDelay = opts.hud == null ? 800 : 900;
 
 	this.active = false;
 	this.timer = new bkcore.Timer();
@@ -31,6 +31,8 @@ bkcore.hexgl.Gameplay = function(opts)
 	this.track = opts.track;
 	this.analyser = opts.analyser;
 	this.pixelRatio = opts.pixelRatio;
+	this.spawn = opts.spawn == undefined ? this.track.spawn : opts.spawn;
+	this.spawnRotation = opts.spawnRotation == undefined ? this.track.spawnRotation : opts.spawnRotation;
 
 	this.previousCheckPoint = -1;
 
@@ -46,10 +48,11 @@ bkcore.hexgl.Gameplay = function(opts)
 	this.lap = 1;
 	this.lapTimes = [];
 	this.lapTimeElapsed = 0;
-	this.maxLaps = 3;
+	this.maxLaps = opts.maxLaps == undefined ? 3 : opts.maxLaps;
 	this.score = null;
 	this.finishTime = null;
 	this.onFinish = opts.onFinish == undefined ? function(){console.log("FINISH");} : opts.onFinish;
+	this.onEnd = opts.onEnd == undefined ? null : opts.onEnd;
 
 	this.raceData = null;
 
@@ -77,7 +80,7 @@ bkcore.hexgl.Gameplay = function(opts)
 				self.hud != null && self.hud.updateLap(self.lap, self.maxLaps);
 
 				if(self.lap == self.maxLaps)
-					self.hud != null && self.hud.display("Final lap", 0.5);
+					self.hud != null && self.hud.display("最后一圈", 0.5);
 			}
 		}
 		else if(cp != -1 && cp != self.previousCheckPoint)
@@ -86,7 +89,7 @@ bkcore.hexgl.Gameplay = function(opts)
 			//self.hud.display("Checkpoint", 0.5);
 		}
 
-		if(self.shipControls.destroyed == true)
+		if(self.result == self.results.NONE && self.shipControls.destroyed == true)
 		{
 			self.end(self.results.DESTROYED);
 		}
@@ -117,9 +120,12 @@ bkcore.hexgl.Gameplay.prototype.start = function(opts)
 {
 	this.finishTime = null;
 	this.score = null;
+	this.result = this.results.NONE;
 	this.lap = 1;
+	this.lapTimes = [];
+	this.lapTimeElapsed = 0;
 
-	this.shipControls.reset(this.track.spawn, this.track.spawnRotation);
+	this.shipControls.reset(this.spawn, this.spawnRotation);
 	this.shipControls.active = false;
 
 	this.previousCheckPoint = this.track.checkpoints.start;
@@ -150,7 +156,7 @@ bkcore.hexgl.Gameplay.prototype.start = function(opts)
 	if(this.hud != null)
 	{
 		this.hud.resetTime();
-		this.hud.display("Get ready", 1);
+		this.hud.display("准备发车", 1);
 		this.hud.updateLap(this.lap, this.maxLaps);
 	}
 }
@@ -164,14 +170,17 @@ bkcore.hexgl.Gameplay.prototype.end = function(result)
 
 	this.shipControls.active = false;
 
+	if(this.onEnd != null)
+		this.onEnd.call(this, result);
+
 	if(result == this.results.FINISH)
 	{
-		if(this.hud != null) this.hud.display("Finish");
+		if(this.hud != null) this.hud.display("完赛");
 		this.step = 100;
 	}
 	else if(result == this.results.DESTROYED)
 	{
-		if(this.hud != null) this.hud.display("Destroyed");
+		if(this.hud != null) this.hud.display("赛车损毁");
 		this.step = 100;
 	}
 }
@@ -199,7 +208,7 @@ bkcore.hexgl.Gameplay.prototype.update = function()
 	}
 	else if(this.step == 3 && this.timer.time.elapsed >= 4*this.countDownDelay+this.startDelay)
 	{
-		if(this.hud != null) this.hud.display("Go", 0.5);
+		if(this.hud != null) this.hud.display("出发", 0.5);
 		this.step = 4;
 		this.timer.start();
 		
