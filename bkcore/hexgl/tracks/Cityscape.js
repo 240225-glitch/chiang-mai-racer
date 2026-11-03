@@ -355,7 +355,11 @@ bkcore.hexgl.tracks.Cityscape = {
 		scene.add( new THREE.AmbientLight( ambient ) );
 
 		// SUN
-		var sun = new THREE.DirectionalLight( diffuse, 1.5, 30000 );
+		// The OSM blockout uses large flat-colour facades. At Cityscape's
+		// 1.5 intensity the sun-facing walls clip to white, so tone the moat
+		// down while leaving the original track untouched.
+		var sunIntensity = this.moatMode ? 1.1 : 1.5;
+		var sun = new THREE.DirectionalLight( diffuse, sunIntensity, 30000 );
 		sun.position.set( -4000, 1200, 1800 );
 		sun.lookAt(new THREE.Vector3());
 

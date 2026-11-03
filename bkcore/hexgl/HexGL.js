@@ -909,7 +909,11 @@ bkcore.hexgl.HexGL.prototype.initGameComposer = function()
 	// desktop + quality mid or high
 	if(this.quality > 2)
 	{
-		var effectBloom = new THREE.BloomPass( 0.8, 25, 4 , 256);
+		// The OSM blockout has large flat-colour surfaces and a bright dawn
+		// skybox; the Cityscape-strength bloom clips them to white. Keep the
+		// original look for Cityscape and use a softer glow on the moat.
+		var bloomStrength = this.track && this.track.moatMode ? 0.35 : 0.8;
+		var effectBloom = new THREE.BloomPass( bloomStrength, 25, 4 , 256);
 
 		this.composers.game.addPass( effectBloom );
 

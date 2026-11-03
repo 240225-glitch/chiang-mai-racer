@@ -782,3 +782,11 @@ tests/browser_smoke.py 增加第 8 场景：HTTP 测试服务器仅在内存里�
 - 可验证缺陷：M2 车辆在倒计时/结算阶段冻结 `ShipControls.update` 时直接 return，绕过 `nitroCheck` 的按键边沿消费。玩家在倒计时长按氮气键或触发一次触摸氮气请求，第一帧比赛可能自动放出氮气。新增 Node 回归在旧实现下先复现 `nitroActive≈1.783s`（预期 0）。
 - 冻结分支现在同步 `nitroKeyPrev` 并清空 `nitroRequest`，不改变冻结速度、剩余氮气、原 Cityscape 路径或 Three.js r50dev。松开后比赛期间重新按下仍可正常触发。新增 Node 及真实浏览器场景断言。
 - Node 12 套、Python 65/65、JS/Python 语法与 diff 检查已通过。完整 Chrome WebGL 验证见后续记录。真实 GPU、人工完整驾驶、OSM 现场路桥核验、HexGL CC BY-NC 授权冲突仍未解决。未触碰线上 `/www/wwwroot/gta.jizhang.org`。
+
+## 2026-11-03 · M3 OSM 赛道实机渲染过曝修复（当前轮）
+
+- 本轮从最新快照提交 `c173f47` 继续，处理 `?track=moat` 实机全屏发白；未改 OSM 6,492.2m 中心线、14m 路宽、碰撞/氮气、Three.js r50dev 或线上 `/www/wwwroot/gta.jizhang.org`。
+- 根因有两处：`StaticModelLoader` 把 `THREE.Color` 实例作为 `MeshPhongMaterial` 构造参数，r50 `setValues()` 再经 `Color.set(Color)` 解析成黑色，导致所有导入路面/立面变黑，只剩默认白色 `ambient` 与强光；同时 CC0 车接入后原 Feisar 助推器 sprite 仍显示，形成巨大白色星芒和蓝色点光污染。
+- 现在 `StaticModelLoader` 的 `legacyHex` 直接向材质传数字 `0xRRGGBB`，导入材质默认 `ambient` 降为 `0x222222`；CC0 车加载成功后隐藏 `booster`、`boosterSprite`、`boosterLight`。仅 moat 使用 Bloom `0.35`（Cityscape 保持 `0.8`）和太阳强度 `1.1`（Cityscape 保持 `1.5`），原 Cityscape 画面不变。
+- 使用本地无缓存服务器 `:8082` 与内置 Chrome 实测：高画质 `?track=moat&quality=3` 读取到 road `#4a4843`、ambient `#222222`、bloom `0.35`、sun `1.1`，助推器视觉已隐藏；低画质 `?quality=0` 无 Bloom，材质颜色正常。起点和短暂前进截图不再全屏发白或出现白色星芒，控制台无 error。
+- 回归：Node **12/12 套**、Python **65/65**、相关 JS `node --check`、`git diff --check` 均通过。内置浏览器验证覆盖起点与短程驾驶，不等同于完整圈速或真实 GPU 验收；真实 GPU、人工完整驾驶、OSM 现场路桥核验、HexGL CC BY-NC 授权冲突仍未解决。

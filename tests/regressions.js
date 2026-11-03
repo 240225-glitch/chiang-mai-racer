@@ -227,7 +227,8 @@ console.log('PASS: 1/3/5 laps, checkpoint order, replay, camera, brake, matrix')
   const models=[];
   const loader={load(url,success){urls.push(url); const model={position:{set(...p){this.coords=p;}},modelData:{bounds:{min:[-1,0,-2],max:[1,1,2]}}};models.push(model);success(model);}};
   const roots=[new Object3D(),new Object3D()];
-  const ships=roots.map(ship=>({ship,legacy:{visible:true}}));
+  const ships=roots.map(ship=>({ship,legacy:{visible:true},
+    booster:{visible:true},boosterSprite:{visible:true},boosterLight:{visible:true}}));
   const controls=[{heightBias:4,repulsionVScale:4},{heightBias:4,repulsionVScale:4}];
   const cameras=[{yoffset:8},{yoffset:8}];
   carModels.attachShips(ships,controls,cameras,true,'?car=kenney',loader);
@@ -236,6 +237,11 @@ console.log('PASS: 1/3/5 laps, checkpoint order, replay, camera, brake, matrix')
   assert.match(urls[1],/grab3d-race-car/);
   assert.equal(ships[0].legacy.visible,false);
   assert.equal(ships[1].legacy.visible,false);
+  for(const ship of ships){
+    assert.equal(ship.booster.visible,false);
+    assert.equal(ship.boosterSprite.visible,false);
+    assert.equal(ship.boosterLight.visible,false);
+  }
   assert.deepEqual(models[0].position.coords,[0,-4,0]);
   assert.equal(controls[0].repulsionVScale,1.5);
   assert.equal(cameras[0].yoffset,4.5);
@@ -268,8 +274,11 @@ console.log('PASS: 1/3/5 laps, checkpoint order, replay, camera, brake, matrix')
     format:'cmr-static-v1',name:'test',materials:[{color:'#c8322b',specular:'#123456'}],
     meshes:[{material:0,positions:[0,0,0,1,0,0,0,1,0],indices:[0,1,2]}]
   });
-  assert.equal(model.children[0].material.params.color.hex,0xc8322b);
-  assert.equal(model.children[0].material.params.specular.hex,0x123456);
+  // Numbers only: r50's Color.set() zeroes a Color instance passed through
+  // MeshPhongMaterial parameters, which made every imported material black.
+  assert.equal(model.children[0].material.params.color,0xc8322b);
+  assert.equal(model.children[0].material.params.specular,0x123456);
+  assert.equal(model.children[0].material.params.ambient,0x222222);
 }
 console.log('PASS: CC0 vehicle loading/fallback and r50 material colors');
 

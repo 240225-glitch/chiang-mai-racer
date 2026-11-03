@@ -30,6 +30,12 @@ bkcore.hexgl.VehicleModels = (function () {
             model.position.set(0, -controls.heightBias, 0);
             shipObject.ship.add(model);
             shipObject.legacy.visible = false;
+            // HexGL's original Feisar exhaust is sized for the old ship and
+            // reads as a huge white starburst behind the low-poly car. Hide
+            // the legacy booster glow and its blue point light with it.
+            if (shipObject.booster) shipObject.booster.visible = false;
+            if (shipObject.boosterSprite) shipObject.boosterSprite.visible = false;
+            if (shipObject.boosterLight) shipObject.boosterLight.visible = false;
             shipObject.vehicleModel = model;
             shipObject.variant = variant;
 

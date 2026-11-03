@@ -160,18 +160,27 @@ THREE.StaticModelLoader = (function () {
 
     // Three.js r50dev Color only accepts numeric 0xRRGGBB. Our asset
     // converter emits CSS-style #RRGGBB strings, which otherwise turn black.
-    function legacyColor(value, fallback) {
+    //
+    // Return numbers, not Color instances: r50's MeshPhongMaterial.setValues()
+    // feeds constructor parameters through Color.set(), and passing a Color
+    // object there silently resolves to black. That bug made every imported
+    // surface black and left only the white ambient light visible.
+    function legacyHex(value, fallback) {
         if (typeof value === 'string') {
             value = /^#[0-9a-f]{6}$/i.test(value) ? parseInt(value.slice(1), 16) : fallback;
         }
-        return new THREE.Color(value === undefined || value === null ? fallback : value);
+        return value === undefined || value === null ? fallback : value;
     }
 
     function buildMaterial(materialData, basePath) {
         var params = {
-            color: legacyColor(materialData.color, 0xffffff),
+            color: legacyHex(materialData.color, 0xffffff),
+            // The stock Phong material defaults ambient to white. With
+            // HexGL's bright ambient light that washes flat-colour OSM
+            // blockouts out to near-white, so keep a dim neutral floor.
+            ambient: legacyHex(materialData.ambient, 0x222222),
             shininess: materialData.shininess !== undefined ? materialData.shininess : 30,
-            specular: legacyColor(materialData.specular, 0x111111),
+            specular: legacyHex(materialData.specular, 0x111111),
             transparent: !!materialData.transparent,
             opacity: materialData.opacity !== undefined ? materialData.opacity : 1,
             side: materialData.doubleSided ? THREE.DoubleSide : THREE.FrontSide,
