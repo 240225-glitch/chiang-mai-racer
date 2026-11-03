@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Chiang Mai Racer · M2 赛道框架预览</title>
+  <style>
+    html,body { margin:0; height:100%; background:#0e171c; color:#f4e8ce;
+      font:15px system-ui,-apple-system,"Microsoft YaHei",sans-serif;overflow:hidden }
+    #view { width:100%;height:100%;display:block; }
+    #info { position:absolute;left:18px;top:18px;background:rgba(8,20,25,.86);
+      border:1px solid #66828a;border-radius:12px;padding:15px;max-width:380px;
+      line-height:1.55;pointer-events:none }
+    h1 { font-size:18px;margin:0 0 8px; }
+    .small { font-size:12px;color:#b9c8cc;margin-top:9px; }
+    #status { color:#e9c47b; }
+    @media(max-width:600px){#info{left:9px;right:9px;top:9px;max-width:none;padding:9px;font-size:12px}h1{font-size:15px}}
+  </style>
+</head>
+<body>
+  <div id="view"></div>
+  <section id="info">
+    <h1>清迈古城护城河赛道 · M2</h1>
+    <div id="status">加载赛道框架中…</div>
+    <div id="route-length">加载道路元数据中…</div>
+    <div>4 个检查点：Tha Phae → Chiang Mai → Suan Dok → Chang Phueak</div>
+    <div class="small">鼠标拖动旋转，滚轮缩放。路线中心线来自 OSM 外圈单行道路，路宽与城门建筑造型仍是程序化示意，水面来自 OSM 水体多边形，尚未现场核对或完成真实 GPU 驾驶验收。Map data © OpenStreetMap contributors (ODbL).</div>
+  </section>
+  <script src="../libs/Three.dev.js"></script>
+  <script src="../bkcore/threejs/StaticModelLoader.js"></script>
+  <script src="../assets/tracks/chiangmai-moat/route-data.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    var status = document.getElementById('status');
+    var route = bkcore.hexgl.MoatRouteData;
+    document.getElementById('route-length').textContent =
+      route.length_m.toFixed(1) + ' 米 OSM 路线 · ' +
+      route.road_width_m + ' 米游戏路宽 · ' +
+      (route.water_polygon_count ?
+       route.water_polygon_count + ' 块 OSM 护城河水面 · ' + (route.building_count || 0) + ' 栋 OSM 建筑轮廓' :
+       route.moat_width_m + ' 米示意水面');
+    if (typeof THREE === 'undefined' || !window.WebGLRenderingContext) {
+      status.textContent = '浏览器不支持 WebGL，请使用支持 WebGL 的桌面浏览器。';
+      return;
+    }
+    var target = document.getElementById('view');
+    var renderer;
+    try { renderer = new THREE.WebGLRenderer({antialias:true}); }
+    catch (error) { status.textContent = 'WebGL 初始化失败：' + error.message; return; }
+    target.appendChild(renderer.domElement);
+    renderer.setClearColorHex(0x15292d,1);
+    var scene = new THREE.Scene();
+    scene.add(new THREE.AmbientLight(0xa1b3aa));
+    var sun = new THREE.DirectionalLight(0xffe7ba,1.3);
+    sun.position.set(-300,1400,500);
+    scene.add(sun);
+    var camera = new THREE.PerspectiveCamera(46,1,2,14000);
+    var theta = 0.7,phi = 0.95, radius = 2850;
+    function positionCamera() {
+      camera.position.set(Math.sin(theta)*Math.sin(phi)*radius,
+                          Math.cos(phi)*radius,
+                          Math.cos(theta)*Math.sin(phi)*radius);
+      camera.lookAt(new THREE.Vector3(0,0,0));
+    }
+    function resize() {
+      var w=window.innerWidth,h=window.innerHeight;
+      renderer.setSize(w,h);
+      camera.aspect=w/h;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize',resize);
+    var dragging=false,lastX=0,lastY=0;
+    renderer.domElement.addEventListener('pointerdown',function(e){
+      dragging=true;lastX=e.clientX;lastY=e.clientY;
+      if(renderer.domElement.setPointerCapture) renderer.domElement.setPointerCapture(e.pointerId);
+    });
+    renderer.domElement.addEventListener('pointerup',function(){dragging=false;});
+    renderer.domElement.addEventListener('pointercancel',function(){dragging=false;});
+    renderer.domElement.addEventListener('pointermove',function(e){
+      if(!dragging) return;
+      theta-=(e.clientX-lastX)*0.007;phi-=(e.clientY-lastY)*0.007;
+      phi=Math.max(0.12,Math.min(1.48,phi));
+      lastX=e.clientX;lastY=e.clientY;positionCamera();
+    });
+    renderer.domElement.addEventListener('wheel',function(e){
+      e.preventDefault();radius=Math.max(550,Math.min(7500,radius*Math.exp(e.deltaY*0.001)));
+      positionCamera();
+    },{passive:false});
+
+    // The geometry uses a static merged-mesh pipeline with merged road, water and gate meshes.
+    THREE.StaticModelLoader.load('../assets/tracks/chiangmai-moat/road.json',
+      function(model) {
+        scene.add(model);
+        var triangles = 0;
+        for(var i=0;i<model.children.length;i++)
+          triangles += model.children[i].geometry.faces.length;
+        status.textContent = '已载入 · ' + model.children.length +
+          ' 个合并网格 · ' + triangles + ' 个三角面';
+      },
+      function(error) {
+        status.textContent = '模型加载失败，请通过本地 HTTP 服务器打开：' + error.message;
+      }
+    );
+    resize();positionCamera();
+    function draw(){requestAnimationFrame(draw);renderer.render(scene,camera);}
+    draw();
+  })();
+  </script>
+</body>
+</html>

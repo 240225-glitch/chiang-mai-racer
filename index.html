@@ -39,9 +39,11 @@
       <div id="menucontainer">
         <div id="menu">
           <div id="start">开始比赛</div>
+          <div id="menu-replay" style="display:none">观看上次比赛回放</div>
           <div id="s-controlType">操控：键盘</div>
           <div id="s-quality">画质：极高</div>
           <div id="s-hud">HUD：开</div>
+          <div id="s-cornerGuide">弯道提示：开</div>
           <div id="s-laps">圈数：3 圈</div>
           <div id="s-players">模式：单人</div>
           <div id="s-difficulty">难度：休闲</div>
@@ -60,6 +62,11 @@
     </div>
     <div id="step-3" style="display: none">
       <div id="progressbar"></div>
+      <div id="load-error" role="alert" style="display:none">
+        <h2>赛道数据加载失败</h2>
+        <p id="load-error-detail">核心赛道或碰撞数据不可用，比赛已安全停止。</p>
+        <button class="game-btn primary" id="load-retry" type="button">重新加载</button>
+      </div>
     </div>
     <div id="step-4" style="display: none">
       <div id="overlay"></div>
@@ -69,6 +76,8 @@
         <div id="p1-tag">玩家 1 <span>WASD · Shift</span></div>
         <div id="p2-tag">玩家 2 <span>方向键 · 空格</span></div>
       </div>
+      <div id="corner-guide-p1" class="corner-guide" role="status" aria-live="off"></div>
+      <div id="corner-guide-p2" class="corner-guide" role="status" aria-live="off"></div>
       <div id="boost-vignette"></div>
       <div id="boost-vignette-p2"></div>
       <div id="race-ui">
@@ -82,6 +91,12 @@
           <div class="nitro-bar"><div id="nitro-fill-p2"></div></div>
           <div class="nitro-key">空格 释放 · 红色加速带补充</div>
         </div>
+      </div>
+      <div id="replay-controls" style="display:none" aria-label="比赛回放">
+        <button id="replay-toggle" class="game-btn" type="button">暂停</button>
+        <input id="replay-seek" type="range" min="0" max="1" step="1" value="0" aria-label="回放进度">
+        <span id="replay-clock">00:00 / 00:00</span>
+        <button id="replay-exit" class="game-btn" type="button">返回成绩</button>
       </div>
       <div id="pause">
         <div id="pause-box">
@@ -108,6 +123,7 @@
       <div id="go-laps"></div>
       <div class="game-actions">
         <button class="game-btn primary" id="go-restart">再来一局 <span>R</span></button>
+        <button class="game-btn" id="go-replay" style="display:none">观看回放</button>
         <button class="game-btn" id="go-menu">返回主菜单</button>
       </div>
       <div id="ctrl-help">按 R 立即重开</div>
@@ -120,10 +136,22 @@
       <h3>图形</h3>
       <p><b>HexMKI 基础模型</b><br>Charnel</p>
       <p><b>赛道贴图</b><br>Nobiax</p>
-      <p style="color:#666">本地副本 · 原项目 HexGL（MIT 许可）<br>github.com/BKcore/HexGL</p>
+      <p><b>清迈古城外圈道路数据</b><br>© OpenStreetMap contributors (ODbL 1.0)<br>
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap 数据与许可</a></p>
+      <p style="color:#666">本地副本 · 原项目 HexGL（部分源码标注 CC BY-NC 3.0，授权冲突待核实）<br>github.com/BKcore/HexGL</p>
       <h4>点击任意处返回</h4>
     </div>
 
+    <div id="osm-attribution" style="display:none;position:fixed;right:8px;bottom:5px;z-index:9999;
+      background:rgba(10,20,25,.8);color:#e1e8e8;font:11px sans-serif;padding:3px 6px;border-radius:4px">
+      Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer"
+      style="color:#d4eaf5">OpenStreetMap contributors</a> (ODbL)
+    </div>
+    <script>
+      if (/(?:^|[?&])track=moat(?:&|$)/.test(window.location.search)) {
+        document.getElementById('osm-attribution').style.display = 'block';
+      }
+    </script>
     <div id="leapinfo" style="display: none"></div>
 
     <script src="libs/leap-0.4.1.min.js"></script>
@@ -150,18 +178,24 @@
     <script src="bkcore/threejs/Shaders.js"></script>
     <script src="bkcore/threejs/Particles.js"></script>
     <script src="bkcore/threejs/Loader.js"></script>
+    <script src="bkcore/threejs/StaticModelLoader.js"></script>
 
     <script src="bkcore/Audio.js"></script>
 
     <script src="bkcore/hexgl/HUD.js"></script>
     <script src="bkcore/hexgl/RaceData.js"></script>
     <script src="bkcore/hexgl/ShipControls.js"></script>
+    <script src="bkcore/hexgl/VehicleModels.js"></script>
     <script src="bkcore/hexgl/ShipEffects.js"></script>
     <script src="bkcore/hexgl/CameraChase.js"></script>
     <script src="bkcore/hexgl/Gameplay.js"></script>
 
     <script src="bkcore/hexgl/tracks/Cityscape.js"></script>
+    <script src="assets/tracks/chiangmai-moat/route-data.js"></script>
+    <script src="bkcore/hexgl/MoatCollision.js"></script>
+    <script src="bkcore/hexgl/tracks/ChiangMaiMoat.js"></script>
 
+    <script src="bkcore/hexgl/CornerGuide.js"></script>
     <script src="bkcore/hexgl/HexGL.js"></script>
 
     <script src="launch.js"></script>

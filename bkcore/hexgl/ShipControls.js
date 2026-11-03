@@ -191,14 +191,15 @@ bkcore.hexgl.ShipControls = function(ctx)
 	{
 		this.gamepadController = new bkcore.controllers.GamepadController(
       function(controller){
-        if (controller.select)
+        if (controller.select) {
           ctx.restart();
-        else
+        } else {
           self.key.forward = controller.acceleration > 0;
           self.key.ltrigger = controller.ltrigger > 0;
           self.key.rtrigger = controller.rtrigger > 0;
           self.key.left = controller.lstickx < -0.1;
           self.key.right = controller.lstickx > 0.1;
+        }
       });
 	}
 	else if(ctx.controlType == 2)
@@ -207,7 +208,7 @@ bkcore.hexgl.ShipControls = function(ctx)
 			throw new Error("Unable to reach LeapJS!");
 
 		var leapInfo = this.leapInfo = document.getElementById('leapinfo');
-		isServerConnected = false;
+		var isServerConnected = false;
 		var lb = this.leapBridge = {
 			isConnected: true,
 			hasHands: false,
@@ -257,7 +258,7 @@ bkcore.hexgl.ShipControls = function(ctx)
 		lc.on('frame', function(frame)
 		{
 			if(!lb.isConnected) return;
-		  hand = frame.hands[0];
+		  var hand = frame.hands[0];
 			if(typeof hand === 'undefined')
 			{
 				if(lb.hasHands)
@@ -329,7 +330,7 @@ bkcore.hexgl.ShipControls = function(ctx)
 bkcore.hexgl.ShipControls.prototype.control = function(threeMesh)
 {
 	this.mesh = threeMesh;
-	this.mesh.martixAutoUpdate = false;
+	this.mesh.matrixAutoUpdate = false;
 	this.dummy.position = this.mesh.position;
 };
 
@@ -369,6 +370,18 @@ bkcore.hexgl.ShipControls.prototype.reset = function(position, rotation)
 	this.rotation.copy(rotation);
 	this.roll = 0.0;
 	this.drift = 0.0;
+	this.angular = 0.0;
+	this.repulsionAmount = 0.0;
+	this.repulsionForce.set(0,0,0);
+	this.currentVelocity.set(0,0,0);
+	this.collisionPreviousPosition.copy(position);
+	this.collision.front = false;
+	this.collision.left = false;
+	this.collision.right = false;
+	this.gradient = 0.0;
+	this.gradientTarget = 0.0;
+	this.tilt = 0.0;
+	this.tiltTarget = 0.0;
 	this.speed = 0.0;
 	this.speedRatio = 0.0;
 	this.boost = 0.0;
@@ -377,6 +390,9 @@ bkcore.hexgl.ShipControls.prototype.reset = function(position, rotation)
 	this.nitroKeyPrev = false;
 	this.nitroRequest = false;
 	this.onBoostPad = false;
+	this.moatCrashCooldown = 0;
+	this.shieldDelay = 60;
+	this.shieldTiming = 0;
 	this.shield = this.maxShield;
 	this.destroyed = false;
 	this.falling = false;
@@ -384,7 +400,10 @@ bkcore.hexgl.ShipControls.prototype.reset = function(position, rotation)
 	this.clearKeys();
 
 	this.dummy.position.copy(position);
-	this.quaternion.set(rotation.x, rotation.y, rotation.z, 1).normalize();
+	// Legacy Cityscape spawn rotations omit w and must retain w=1.
+	// GeoJSON routes use a full normalized quaternion for arbitrary yaw.
+	this.quaternion.set(rotation.x, rotation.y, rotation.z,
+		rotation.w === undefined ? 1 : rotation.w).normalize();
 	this.dummy.quaternion.set(0,0,0,1);
 	this.dummy.quaternion.multiplySelf(this.quaternion);
 
@@ -447,6 +466,24 @@ bkcore.hexgl.ShipControls.prototype.update = function(dt)
 		return;
 	}
 
+	// The renderer keeps updating controls during the countdown and after
+	// the finish. On the narrow M2 OSM route this could move an inactive
+	// car >10 metres in 20 frames when parked on a boost pad, and even
+	// recharge nitro before the race began. Freeze M2 physics while
+	// inactive; do not alter Cityscape's historical update behaviour.
+	// Pausing the game stops the render loop, so active racers retain
+	// their speed until resumed.
+	if(!this.active && this.collisionMap && this.collisionMap.projectInside)
+	{
+		// Mirror the inactive Cityscape nitro edge handling even though
+		// M2 physics is frozen. Otherwise a held countdown key or a queued
+		// touch request automatically fires on the first racing frame.
+		this.nitroKeyPrev = !!this.key.nitro;
+		this.nitroRequest = false;
+		this.currentVelocity.set(0,0,0);
+		return;
+	}
+
 	this.rotation.y = 0;
 	this.movement.set(0,0,0);
 	this.drift += (0.0 - this.drift) * this.driftLerp;
@@ -503,6 +540,9 @@ bkcore.hexgl.ShipControls.prototype.update = function(dt)
 			this.speed += this.thrust * dt;
 		else
 			this.speed -= this.airResist * dt;
+		// Brake independently of throttle. Reverse gear is not modelled.
+		if(this.key.backward)
+			this.speed -= this.airBrake * dt;
 		if(this.key.ltrigger)
 		{
 			if(this.key.left)
@@ -670,8 +710,11 @@ bkcore.hexgl.ShipControls.prototype.boosterCheck = function(dt)
 		bkcore.Audio.stop('boost');
 	}
 
-	var x = Math.round(this.collisionMap.pixels.width/2 + this.dummy.position.x * this.collisionPixelRatio);
-	var z = Math.round(this.collisionMap.pixels.height/2 + this.dummy.position.z * this.collisionPixelRatio);
+	var x = this.collisionMap.pixels.width/2 + this.dummy.position.x * this.collisionPixelRatio;
+	var z = this.collisionMap.pixels.height/2 + this.dummy.position.z * this.collisionPixelRatio;
+	// Bitmap-backed Cityscape needs integer pixels, but the OSM corridor
+	// expects precise metre coordinates (especially near diagonal edges).
+	if(!this.collisionMap.projectInside) { x = Math.round(x); z = Math.round(z); }
 	var pos = new THREE.Vector3(x, 0, z);
 
 	var color = this.collisionMap.getPixel(x, z);
@@ -729,6 +772,39 @@ bkcore.hexgl.ShipControls.prototype.collisionCheck = function(dt)
 	this.collision.left = false;
 	this.collision.right = false;
 	this.collision.front = false;
+
+	// OSM road shoulder: prevent the legacy fall() path from instantly
+	// ending a race after a small 14m-road excursion. Only MoatCollision
+	// implements this adapter; Cityscape's original physics stays intact.
+	if(this.collisionMap.projectInside)
+	{
+		this.moatCrashCooldown = Math.max(0, (this.moatCrashCooldown || 0) - dt);
+		var correction = this.collisionMap.projectMovement ?
+			this.collisionMap.projectMovement(
+				this.collisionPreviousPosition.x, this.collisionPreviousPosition.z,
+				this.dummy.position.x, this.dummy.position.z, 0.8) :
+			this.collisionMap.projectInside(
+				this.dummy.position.x, this.dummy.position.z, 0.8);
+		if(correction.corrected)
+		{
+			this.dummy.position.x = correction.x;
+			this.dummy.position.z = correction.z;
+			this.currentVelocity.copy(this.dummy.position).subSelf(this.collisionPreviousPosition);
+			this.repulsionForce.set(0,0,0);
+			this.speed *= 0.55;
+			this.boost = 0;
+			this.nitroActive = 0;
+			this.collision.front = true;
+			if(this.moatCrashCooldown <= 0)
+			{
+				bkcore.Audio.play('crash');
+				this.shield = Math.max(0, this.shield - 0.025 * this.shieldDamage);
+				this.moatCrashCooldown = 18;
+			}
+			return true;
+		}
+		return false;
+	}
 
 	var x = Math.round(this.collisionMap.pixels.width/2 + this.dummy.position.x * this.collisionPixelRatio);
 	var z = Math.round(this.collisionMap.pixels.height/2 + this.dummy.position.z * this.collisionPixelRatio);

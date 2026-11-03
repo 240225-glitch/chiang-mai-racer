@@ -1,7 +1,7 @@
 # 资产清单 / Assets
 
 > 目标：**全低模 + 许可干净 + 旧引擎可加载**。
-> 最后核对：2026-10-30
+> 最后核对：2026-10-31
 
 ## 选型原则
 
@@ -86,7 +86,7 @@ assets/cars/kenney-race-future/
 
 | 模型 | 作者 | 许可 | 面数 | 建议 |
 | --- | --- | --- | --- | --- |
-| [Wat Chedi Luang](https://sketchfab.com/3d-models/wat-chedi-luang-3296a81f50484797adcb53ba66183940) | SphereView360 Thailand | CC BY 4.0 | **2,151** | ✅ 首选，直接接入 |
+| [Wat Chedi Luang](https://sketchfab.com/3d-models/wat-chedi-luang-3296a81f50484797adcb53ba66183940) | SphereView360 Thailand | CC BY 4.0 | **2,151** | 未下载/未使用；当前用 OSM footprint 生成原创低模 blockout |
 | [Sutep Temple](https://sketchfab.com/3d-models/sutep-temple-chiangmai-thailand-67909b569d7f4c3e8efbb34744b8f3aa) | SphereView360 Thailand | CC BY 4.0 | 272,264 | 远景 / Doi Suthep 备选，需减面 |
 | [Wat Chiang Man](https://sketchfab.com/3d-models/wat-chiang-man-chiangmai-35b45a11afca408abe7c03058df4bdf5) | SphereView360 Thailand | CC BY 4.0 | 1,201,802 | 需减到 ≤ 30k 才可用 |
 | [Thai Lanna Buddhist Temple](https://sketchfab.com/3d-models/thai-lanna-buddhist-temple-6add9dac765b457796bb4160970f11ec) | kositsuwan | CC BY 4.0 | 487,454 | 未贴图，适合参考 / 重贴图 |
@@ -179,3 +179,23 @@ tools/
 - [ ] 无外部依赖贴图路径
 - [ ] 能在 `r50dev` 中加载并正确显示
 - [ ] 已记录来源 URL、作者、许可版本
+
+## M3 临街建筑（2026-10-31）
+
+815 栋临街建筑平面轮廓来自 OSM 官方 API 同一 2026-10-31 XML 快照，ODbL 1.0，way IDs 和数据哈希记录在 assets/tracks/chiangmai-moat/source-buildings-osm.geojson。低模立面/屋顶由 tools/build_moat_blockout.py 合并生成，2 个 mesh；776 栋建筑高度为原创游戏示意估算，39 栋按 OSM building:levels 推算，均非实测建筑高度。详细数据来源和许可见 docs/OSM-PROVENANCE.md。
+
+
+## 2026-10-31：Wat Chedi Luang 程序化地标 blockout
+
+| 项目 | 来源 | 许可 | 面数 | 状态 |
+| --- | --- | --- | ---: | --- |
+| Wat Chedi Luang compound | OSM way 243018795 | ODbL 1.0 | footprint only | 已入库 |
+| Wat Chedi Luang Stupa | OSM way 93413945 | ODbL 1.0 | footprint only | 已入库 |
+| Pra Wihan Luang | OSM way 93413944 | ODbL 1.0 | footprint only | 已入库 |
+| Ho Inthakhin City Pillar Shrine | OSM way 441418807 | ODbL 1.0 | footprint only | 已入库 |
+
+- 源数据：assets/tracks/chiangmai-moat/source-wat-chedi-luang-osm.geojson，与道路、水体、城门和临街建筑共用 2026-10-31 OSM XML SHA-256 快照。
+- 生成方式：tools/osm_wat_chedi_luang.py 提取 OSM footprints，tools/build_moat_blockout.py 生成古塔、支座、主殿/城柱庙墙体和屋顶。
+- 运行时增量：4 meshes、约 230 triangles；不依赖 Sketchfab 模型或外部运行时 URL。
+- 重要限制：OSM 仅提供平面边界和标签；模型高度、屋顶和立面为原创游戏示意，不是实测或历史建筑精确复原。
+- ODbL 署名及复现命令见 docs/OSM-PROVENANCE.md。

@@ -20,28 +20,56 @@
           once th eimage is loaded
     */
 
-    function ImageData(path, callback) {
+    function ImageData(path, callback, errorCallback) {
       var _this = this;
+      var completed = false;
+      var timer = null;
       this.image = new Image;
       this.pixels = null;
       this.canvas = null;
       this.loaded = false;
-      this.image.onload = function() {
-        var context;
-        _this.canvas = document.createElement('canvas');
-        _this.canvas.width = _this.image.width;
-        _this.canvas.height = _this.image.height;
-        context = _this.canvas.getContext('2d');
-        context.drawImage(_this.image, 0, 0);
-        _this.pixels = context.getImageData(0, 0, _this.canvas.width, _this.canvas.height);
-        _this.loaded = true;
-        context = null;
+      this.failed = false;
+
+      function fail(reason) {
+        if (completed) return;
+        completed = true;
+        if (timer !== null) clearTimeout(timer);
+        _this.loaded = false;
+        _this.failed = true;
+        _this.pixels = null;
         _this.canvas = null;
         _this.image = null;
-        return callback != null ? callback.call(_this) : void 0;
+        if (errorCallback != null) errorCallback.call(_this, reason);
+      }
+
+      this.image.onload = function() {
+        if (completed) return;
+        try {
+          if (!_this.image.width || !_this.image.height)
+            throw new Error('empty analyser image');
+          _this.canvas = document.createElement('canvas');
+          _this.canvas.width = _this.image.width;
+          _this.canvas.height = _this.image.height;
+          var context = _this.canvas.getContext('2d');
+          if (!context) throw new Error('analyser canvas unavailable');
+          context.drawImage(_this.image, 0, 0);
+          _this.pixels = context.getImageData(0, 0, _this.canvas.width, _this.canvas.height);
+          if (!_this.pixels || !_this.pixels.data ||
+              _this.pixels.data.length !== _this.canvas.width * _this.canvas.height * 4)
+            throw new Error('analyser pixels unavailable');
+          completed = true;
+          if (timer !== null) clearTimeout(timer);
+          _this.loaded = true;
+          _this.canvas = null;
+          _this.image = null;
+          if (callback != null) callback.call(_this);
+        } catch (error) { fail(error); }
       };
+      this.image.onerror = function() { fail(new Error('analyser image failed: ' + path)); };
       this.image.crossOrigin = "anonymous";
-      this.image.src = path;
+      timer = setTimeout(function() { fail(new Error('analyser image timeout: ' + path)); }, 15000);
+      try { this.image.src = path; }
+      catch (error) { fail(error); }
     }
 
     /*

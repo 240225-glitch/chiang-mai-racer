@@ -11,7 +11,7 @@
 
 - 项目：[BKcore/HexGL](https://github.com/BKcore/HexGL)
 - 作者：Thibaut Despoulain（BKcore）
-- 许可：**MIT License**
+- 许可状态：上游仓库根目录 LICENSE 为 MIT，但 9 个旧 HexGL 源文件头标注 CC BY-NC 3.0。该冲突尚未解决；未取得作者澄清前，不应宣称整个项目统一 MIT 或保证可商用。
 - 版权：Copyright (c) 2015 Thibaut Despoulain
 - 使用范围：引擎框架、渲染管线、赛道系统、车辆控制、贴图、音频、UI 基础
 
@@ -46,8 +46,6 @@
 
 CC0 不强制署名，但本项目仍在此登记，感谢作者。
 
-CC0 不强制署名，但本项目仍在此登记，感谢作者。
-
 **推荐用途**
 
 - 主赛车：Grab3D Race Car（比例真实）或 Kenney `race-future`（性能优先）
@@ -58,7 +56,7 @@ CC0 不强制署名，但本项目仍在此登记，感谢作者。
 
 ## 3. 计划使用的地标与道具（CC BY 4.0）
 
-以下 Sketchfab 模型**尚未下载、尚未包含在仓库中**，仅作为制作候选登记。
+以下 Sketchfab 模型**尚未下载、尚未包含在仓库中**，仅作为制作候选登记。当前 Wat Chedi Luang 游戏内 blockout 不使用该 Sketchfab 模型，而是使用 OSM footprint + 本项目原创程序化网格。
 如最终使用，必须在下文「CC BY 署名格式」中保留完整署名。
 
 | 模型 | 作者 | 许可 | 面数 | 用途 |
@@ -133,7 +131,7 @@ Map data © OpenStreetMap contributors (ODbL)
 3D conversion: OSM2World (MIT)
 Terrain: Mapzen / SRTM / GMTED
 
-Landmark models: see CREDITS.md (CC BY 4.0)
+Wat Chedi Luang blockout: OSM footprints (ODbL) + original procedural meshes; unused CC BY candidates are listed in CREDITS.md
 ```
 
 ---
@@ -144,3 +142,31 @@ Landmark models: see CREDITS.md (CC BY 4.0)
 - CC0 1.0：<https://creativecommons.org/publicdomain/zero/1.0/>
 - CC BY 4.0：<https://creativecommons.org/licenses/by/4.0/>
 - ODbL 1.0：<https://opendatacommons.org/licenses/odbl/1-0/>
+
+## 2026-10-31 已实际入库的 OSM 道路数据
+
+- assets/tracks/chiangmai-moat/source-osm.geojson：从 OSM 官方 API 提取的清迈古城外圈道路中心线，90 个 way，6.49 km；许可 **ODbL 1.0**，署名 **© OpenStreetMap contributors**。
+- 原始 OSM API 快照 SHA-256、采集范围、日期、提取算法与使用限制见 docs/OSM-PROVENANCE.md。游戏内 credits 与固定角标均已加入 OSM 署名。
+- 路宽、水体与门框仍是游戏生成的示意物件；不要把 OSM 衍生数据错误标为 MIT/CC0。
+
+- 同一 OSM 快照中的 19 块 water=moat 护城河水体多边形也已入库 source-water-osm.geojson（ODbL），与道路同样要求 © OpenStreetMap contributors 署名。
+
+
+### OSM 城门坐标与原创示意建筑（2026-10-31）
+
+assets/tracks/chiangmai-moat/source-gates-osm.geojson 包含四个 OpenStreetMap historic=city_gate 节点（ODbL 1.0），同源快照与署名见 docs/OSM-PROVENANCE.md。游戏中的城门/短墙低模为本项目工具程序化生成的原创示意几何，未采用第三方历史建筑 3D 模型，也不代表真实外观；不可将 OSM 数据误称 CC0。
+
+
+### OSM 建筑轮廓
+
+清迈古城外环临街 815 栋建筑的平面轮廓及 way ID 来自 © OpenStreetMap contributors（ODbL 1.0），与道路、水体、历史城门使用同一 2026-10-31 XML 快照。生成器对 776 栋无高度信息的建筑采用原创程序化高度估算；这些不是 OSM 测量值。详见 docs/OSM-PROVENANCE.md。ODbL 数据许可独立于车辆 CC0 和仓库源代码许可。
+
+
+## 8. Wat Chedi Luang 地标数据
+
+- 数据：© OpenStreetMap contributors，Open Database License (ODbL) 1.0。
+- 源文件：assets/tracks/chiangmai-moat/source-wat-chedi-luang-osm.geojson。
+- OSM way IDs：243018795（寺院范围）、93413945（古塔）、93413944（Pra Wihan Luang）、441418807（城柱庙）。
+- 来源、同快照 SHA-256、提取器和模型限制：docs/OSM-PROVENANCE.md。
+- 游戏内模型：本项目原创程序化低模 blockout，约 230 triangles；OSM 只提供平面轮廓和标签，三维高度、屋顶、颜色和立面均为美术示意，非扫描或历史建筑复原。
+- 署名：Map data © OpenStreetMap contributors, available under the Open Database License (ODbL). https://www.openstreetmap.org/copyright

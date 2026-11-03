@@ -13,33 +13,55 @@ class ImageData
     @param callback function A callback function to be called
       once th eimage is loaded
   ###
-  constructor: (path, callback)->
+  constructor: (path, callback, errorCallback)->
 
     @image = new Image
     @pixels = null
     @canvas = null
     @loaded = false
+    @failed = false
+    completed = false
+    timer = null
 
-    @image.onload = ()=>
-
-      @canvas = document.createElement('canvas')
-      @canvas.width = @image.width
-      @canvas.height = @image.height
-
-      context = @canvas.getContext('2d')
-      context.drawImage(@image, 0, 0)
-
-      @pixels = context.getImageData(0,0, @canvas.width, @canvas.height)
-      @loaded = true
-
-      context = null
+    fail = (reason)=>
+      return if completed
+      completed = true
+      clearTimeout(timer) if timer?
+      @loaded = false
+      @failed = true
+      @pixels = null
       @canvas = null
       @image = null
+      errorCallback?.call(@, reason)
 
-      callback?.call(@)
+    @image.onload = ()=>
+      return if completed
+      try
+        throw new Error('empty analyser image') unless @image.width and @image.height
+        @canvas = document.createElement('canvas')
+        @canvas.width = @image.width
+        @canvas.height = @image.height
+        context = @canvas.getContext('2d')
+        throw new Error('analyser canvas unavailable') unless context
+        context.drawImage(@image, 0, 0)
+        @pixels = context.getImageData(0, 0, @canvas.width, @canvas.height)
+        throw new Error('analyser pixels unavailable') unless @pixels?.data?.length is @canvas.width * @canvas.height * 4
+        completed = true
+        clearTimeout(timer) if timer?
+        @loaded = true
+        @canvas = null
+        @image = null
+        callback?.call(@)
+      catch error
+        fail(error)
 
+    @image.onerror = ()=> fail(new Error('analyser image failed: ' + path))
     @image.crossOrigin = "anonymous"
-    @image.src = path
+    timer = setTimeout((()=> fail(new Error('analyser image timeout: ' + path))), 15000)
+    try
+      @image.src = path
+    catch error
+      fail(error)
 
   ###
     Gets pixel RGBA data at given index

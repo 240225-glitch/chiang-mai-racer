@@ -35,6 +35,7 @@ bkcore.hexgl.Gameplay = function(opts)
 	this.spawnRotation = opts.spawnRotation == undefined ? this.track.spawnRotation : opts.spawnRotation;
 
 	this.previousCheckPoint = -1;
+	this.nextCheckPointIndex = 0;
 
 	this.results = {
 		FINISH: 1,
@@ -63,30 +64,31 @@ bkcore.hexgl.Gameplay = function(opts)
 		self.hud != null && self.hud.updateTime(self.timer.getElapsedTime());
 		var cp = self.checkPoint();
 
-		if(cp == self.track.checkpoints.start && self.previousCheckPoint == self.track.checkpoints.last)
+		// Only accept the next checkpoint in the ordered route. Crossing
+		// the last gate and start line alone must never count as a lap.
+		var checkpoints = self.track.checkpoints.list;
+		if(cp != -1 && checkpoints.length > 1 &&
+			cp == checkpoints[self.nextCheckPointIndex])
 		{
 			self.previousCheckPoint = cp;
-			var t = self.timer.time.elapsed;
-			self.lapTimes.push(t - self.lapTimeElapsed);
-			self.lapTimeElapsed = t;
-
-			if(self.lap == this.maxLaps)
+			self.nextCheckPointIndex = (self.nextCheckPointIndex + 1) % checkpoints.length;
+			if(cp == self.track.checkpoints.start)
 			{
-				self.end(self.results.FINISH);
-			}
-			else
-			{
-				self.lap++;
-				self.hud != null && self.hud.updateLap(self.lap, self.maxLaps);
-
+				var t = self.timer.time.elapsed;
+				self.lapTimes.push(t - self.lapTimeElapsed);
+				self.lapTimeElapsed = t;
 				if(self.lap == self.maxLaps)
-					self.hud != null && self.hud.display("最后一圈", 0.5);
+				{
+					self.end(self.results.FINISH);
+				}
+				else
+				{
+					self.lap++;
+					if(self.hud != null) self.hud.updateLap(self.lap, self.maxLaps);
+					if(self.lap == self.maxLaps && self.hud != null)
+						self.hud.display("最后一圈", 0.5);
+				}
 			}
-		}
-		else if(cp != -1 && cp != self.previousCheckPoint)
-		{
-			self.previousCheckPoint = cp;
-			//self.hud.display("Checkpoint", 0.5);
 		}
 
 		if(self.result == self.results.NONE && self.shipControls.destroyed == true)
@@ -101,7 +103,7 @@ bkcore.hexgl.Gameplay = function(opts)
 
 		if(self.raceData.seek == self.raceData.last)
 		{
-			self.end(self.result.REPLAY);
+			self.end(self.results.REPLAY);
 		}
 	};
 }
@@ -124,11 +126,19 @@ bkcore.hexgl.Gameplay.prototype.start = function(opts)
 	this.lap = 1;
 	this.lapTimes = [];
 	this.lapTimeElapsed = 0;
+	// Remember the last OSM checkpoint sample so a long frame cannot skip
+	// a narrow gate between two legal positions on the same road.
+	this._lastCheckpointSample = null;
+	if(this.analyser && this.analyser.projectMovement && this.spawn &&
+		isFinite(this.spawn.x) && isFinite(this.spawn.z))
+		this._lastCheckpointSample = {x:this.spawn.x,z:this.spawn.z};
 
 	this.shipControls.reset(this.spawn, this.spawnRotation);
 	this.shipControls.active = false;
 
 	this.previousCheckPoint = this.track.checkpoints.start;
+	var checkPointList = this.track.checkpoints.list;
+	this.nextCheckPointIndex = (checkPointList.indexOf(this.track.checkpoints.start) + 1) % checkPointList.length;
 
 	this.raceData = new bkcore.hexgl.RaceData(this.track.name, this.mode, this.shipControls);
 	if(this.mode == 'replay')
@@ -228,13 +238,50 @@ bkcore.hexgl.Gameplay.prototype.update = function()
 
 bkcore.hexgl.Gameplay.prototype.checkPoint = function()
 {
-	var x = Math.round(this.analyser.pixels.width/2 + this.shipControls.dummy.position.x * this.pixelRatio);
-	var z = Math.round(this.analyser.pixels.height/2 + this.shipControls.dummy.position.z * this.pixelRatio);
+	var x = this.analyser.pixels.width/2 + this.shipControls.dummy.position.x * this.pixelRatio;
+	var z = this.analyser.pixels.height/2 + this.shipControls.dummy.position.z * this.pixelRatio;
+	// Cityscape samples a pixel bitmap; the OSM road analyser instead uses
+	// continuous world metres. Rounding a diagonal road-edge position can
+	// push a legal car outside its 14m corridor and miss the checkpoint.
+	if(!this.analyser.projectInside) { x = Math.round(x); z = Math.round(z); }
 
 	var color = this.analyser.getPixel(x, z);
+	var previous = this._lastCheckpointSample;
+	var continuous = !!(this.analyser.projectMovement &&
+		this.analyser.route && this.analyser.route.checkpoints);
+	if(continuous)
+	{
+		// Validate *every* OSM sample, not just frames touching a gate:
+		// otherwise a teleport can cross a road gap on one tick and claim
+		// the checkpoint on the next. Keep the last trusted sample when
+		// a movement is rejected, including when the car stays at the
+		// invalid destination. The physics layer handles normal recovery.
+		if(previous &&
+			(this.analyser.distanceSquared(previous.x,previous.z) >
+				this.analyser.halfWidth*this.analyser.halfWidth ||
+			this.analyser.projectMovement(previous.x,previous.z,x,z,0.8,true).corrected))
+			return -1;
+		this._lastCheckpointSample = {x:x,z:z};
+	}
 
 	if(color.r == 255 && color.g == 255 && color.b < 250)
 		return color.b;
-	else
+	if(!continuous || !previous || color.r != 255)
 		return -1;
+
+	// Endpoint-only checkpoint sampling misses a gate if a frame or a
+	// delayed gameplay tick moves from before its 12m disc to beyond it.
+	// Consider only the *next* gate and certify the entire movement stays
+	// on the road; a shortcut through the old city must never earn a gate.
+	var gate = this.analyser.route.checkpoints[this.nextCheckPointIndex];
+	if(!gate) return -1;
+	var dx=x-previous.x,dz=z-previous.z,length2=dx*dx+dz*dz;
+	if(!isFinite(length2) || length2<=0) return -1;
+	var t=Math.max(0,Math.min(1,
+		((gate.x-previous.x)*dx+(gate.z-previous.z)*dz)/length2));
+	var nearX=previous.x+t*dx-gate.x;
+	var nearZ=previous.z+t*dz-gate.z;
+	if(nearX*nearX+nearZ*nearZ>=144) return -1;
+	// The segment was already certified above, including short frames.
+	return this.nextCheckPointIndex;
 }

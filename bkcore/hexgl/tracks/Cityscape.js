@@ -67,6 +67,7 @@ bkcore.hexgl.tracks.Cityscape = {
 				texturesCube: {
 					'skybox.dawnclouds'					: "textures/skybox/dawnclouds/%1.jpg"
 				},
+				requiredGeometries: {'track.cityscape': true},
 				geometries: {
 					'bonus.base'						: "geometries/bonus/base/base.js",
 					'booster'							: "geometries/booster/booster.js",
@@ -143,6 +144,7 @@ bkcore.hexgl.tracks.Cityscape = {
 				texturesCube: {
 					'skybox.dawnclouds'					: "textures.full/skybox/dawnclouds/%1.jpg"
 				},
+				requiredGeometries: {'track.cityscape': true},
 				geometries: {
 					'bonus.base'						: "geometries/bonus/base/base.js",
 					'booster'							: "geometries/booster/booster.js",
@@ -306,7 +308,8 @@ bkcore.hexgl.tracks.Cityscape = {
 		var S = this.trackScale;
 
 		// IMPORTANT
-		this.analyser = this.lib.get("analysers", "track.cityscape.collision");
+		this.analyser = this.moatMode ? this.analyser :
+			this.lib.get("analysers", "track.cityscape.collision");
 
 		// SKYBOX
 		var sceneCube = new THREE.Scene();
@@ -376,20 +379,29 @@ bkcore.hexgl.tracks.Cityscape = {
 		scene.add( sun );
 
 		// SHIPS (one for solo, two side-by-side ships for split-screen)
-		var sideOffset = 22 * S;
+		// The moat track is 14 metres wide; old Cityscape spawn spacing is
+		// far too wide and would put both cars outside the collision corridor.
+		var sideOffset = this.moatMode ? 2.8 : 22 * S;
+		var sideX = this.moatMode ? this.spawnLateral.x * sideOffset : sideOffset;
+		var sideZ = this.moatMode ? this.spawnLateral.z * sideOffset : 0;
 		var spawns = [{x: this.spawn.x, y: this.spawn.y, z: this.spawn.z}];
 		if(ctx.twoPlayer)
 		{
 			spawns = [
-				{x: this.spawn.x - sideOffset, y: this.spawn.y, z: this.spawn.z},
-				{x: this.spawn.x + sideOffset, y: this.spawn.y, z: this.spawn.z}
+				{x: this.spawn.x - sideX, y: this.spawn.y, z: this.spawn.z - sideZ},
+				{x: this.spawn.x + sideX, y: this.spawn.y, z: this.spawn.z + sideZ}
 			];
 		}
 		ctx.components.spawns = spawns;
 
 		function createShip(position)
 		{
-			var ship = ctx.createMesh(scene, self.lib.get("geometries", "ship.feisar"), position.x, 10, position.z, self.materials.ship);
+			// A neutral Object3D holds the physics transform. The original ship
+			// is a child and remains the fallback if a CC0 vehicle cannot load.
+			var ship = new THREE.Object3D();
+			ship.position.set(position.x, 10, position.z);
+			scene.add(ship);
+			var legacy = ctx.createMesh(ship, self.lib.get("geometries", "ship.feisar"), 0, 0, 0, self.materials.ship);
 
 			var booster = ctx.createMesh(ship, self.lib.get("geometries", "booster"), 0, 0.665, -3.8, self.materials.booster);
 			booster.depthWrite = false;
@@ -413,7 +425,7 @@ bkcore.hexgl.tracks.Cityscape = {
 			if(quality > 0)
 				ship.add(boosterLight);
 
-			return {ship: ship, booster: booster, boosterSprite: boosterSprite, boosterLight: boosterLight};
+			return {ship: ship, legacy: legacy, booster: booster, boosterSprite: boosterSprite, boosterLight: boosterLight};
 		}
 
 		var shipObjects = [createShip(spawns[0])];
@@ -435,10 +447,12 @@ bkcore.hexgl.tracks.Cityscape = {
 			}
 
 			var shipControls = new bkcore.hexgl.ShipControls(controlContext);
-			shipControls.collisionMap = self.lib.get("analysers", "track.cityscape.collision");
+			shipControls.collisionMap = self.moatMode ? self.analyser :
+				self.lib.get("analysers", "track.cityscape.collision");
 			shipControls.collisionPixelRatio = self.pixelRatio;
 			shipControls.collisionDetection = true;
-			shipControls.heightMap = self.lib.get("analysers", "track.cityscape.height");
+			shipControls.heightMap = self.moatMode ? self.flatHeight :
+				self.lib.get("analysers", "track.cityscape.height");
 			shipControls.heightPixelRatio = self.pixelRatio;
 			shipControls.heightBias = 4.0;
 			shipControls.heightScale = 10.0;
@@ -472,6 +486,29 @@ bkcore.hexgl.tracks.Cityscape = {
 		ctx.components.shipControls = controls[0];
 		if(ctx.twoPlayer) ctx.components.shipControls2 = controls[1];
 		ctx.tweakShipControls();
+		if(this.moatMode)
+		{
+			// HexGL's original speed (9+ units/frame) would complete 6.5 km
+			// in seconds. 0.6-0.8 m/frame gives a ~2.5-3 min arcade lap.
+			for(var vehicle = 0; vehicle < controls.length; vehicle++)
+			{
+				var c = controls[vehicle];
+				c.maxSpeed = ctx.difficulty == 1 ? 0.82 : 0.62;
+				c.thrust = ctx.difficulty == 1 ? 0.006 : 0.005;
+				c.airResist = 0.002;
+				c.airBrake = 0.014;
+				c.boosterSpeed = c.maxSpeed * 0.32;
+				c.boosterDecay = 0.003;
+				// The OSM route has turns of up to ~55 degrees in one
+				// 10m segment. HexGL.tweakShipControls overrides the
+				// constructor default 0.005 with 0.019/0.021 in normal/
+				// hard Cityscape mode. Tune only the moat cars after
+				// that call, retaining the old Cityscape steering.
+				c.angularSpeed = 0.024;
+				c.airAngularSpeed = 0.030;
+				c.repulsionVScale = 1.8;
+			}
+		}
 
 		// SHIP EFFECTS AND PARTICLES
 		function createShipEffects(shipObject, shipControls)
@@ -513,13 +550,20 @@ bkcore.hexgl.tracks.Cityscape = {
 			return mesh;
 		}
 
-		var track = createTrackMesh("track.cityscape", this.materials.track);
-		var bonusBase = createTrackMesh("bonus.base", this.materials.bonusBase);
-		var bonusSpeed = createTrackMesh("track.cityscape.bonus.speed", this.materials.bonusSpeed);
-		bonusSpeed.receiveShadow = false;
-		var start = createTrackMesh("track.cityscape.start", this.materials.start);
-		var startbanner = createTrackMesh("track.cityscape.start.banner", this.materials.startBanner);
-		startbanner.doubleSided = true;
+		if(this.moatMode)
+		{
+			scene.add(this.roadModel);
+		}
+		else
+		{
+			var track = createTrackMesh("track.cityscape", this.materials.track);
+			var bonusBase = createTrackMesh("bonus.base", this.materials.bonusBase);
+			var bonusSpeed = createTrackMesh("track.cityscape.bonus.speed", this.materials.bonusSpeed);
+			bonusSpeed.receiveShadow = false;
+			var start = createTrackMesh("track.cityscape.start", this.materials.start);
+			var startbanner = createTrackMesh("track.cityscape.start.banner", this.materials.startBanner);
+			startbanner.doubleSided = true;
+		}
 
 		// Visible checkpoint gates. Positions come from the yellow pixels in
 		// the original collision map (checkpoints 0, 1 and 2). Each gate is
@@ -535,7 +579,7 @@ bkcore.hexgl.tracks.Cityscape = {
 			{x: 1505.86, y: 753, z: 607.91, yaw: -0.7},
 			{x: 2253.60, y: 326, z: 823.43, yaw: -4.8}
 		];
-		for(var cp = 0; cp < checkpointData.length; cp++)
+		for(var cp = 0; !this.moatMode && cp < checkpointData.length; cp++)
 		{
 			var ring = new THREE.Mesh(
 				new THREE.TorusGeometry(55, 3, 8, 48),
@@ -572,6 +616,12 @@ bkcore.hexgl.tracks.Cityscape = {
 			});
 			ctx.components.cameraChase2 = cameraChase2;
 		}
+		// Async visual load: the original vehicle stays usable during network
+		// latency and on failure. ?ship=1 forces the original spacecraft.
+		bkcore.hexgl.VehicleModels.attachShips(
+			shipObjects, controls, [cameraChase, cameraChase2],
+			ctx.twoPlayer, window.location.search, THREE.StaticModelLoader
+		);
 
 		var doc = ctx.document;
 		var nitroPanels = [
@@ -699,7 +749,7 @@ bkcore.hexgl.tracks.Cityscape = {
 			for(var i = 0; i < activePlayers.length; i++)
 			{
 				var p = activePlayers[i];
-				p.controls.update(dt);
+				if(!ctx.replayViewer) p.controls.update(dt);
 				p.effects.update(dt);
 				p.chase.update(dt, p.controls.getSpeedRatio());
 			}
@@ -715,7 +765,7 @@ bkcore.hexgl.tracks.Cityscape = {
 				var shipControls = player.controls;
 
 				if(player.hud) player.hud.update(
-					shipControls.getRealSpeed(100),
+					shipControls.getRealSpeed(ctx.track.moatMode ? 216 : 100),
 					shipControls.getRealSpeedRatio(),
 					shipControls.getShield(100),
 					shipControls.getShieldRatio()

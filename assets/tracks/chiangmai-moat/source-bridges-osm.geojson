@@ -1,0 +1,695 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "source": "© OpenStreetMap contributors",
+    "license": "Open Database License (ODbL) 1.0",
+    "source_url": "https://www.openstreetmap.org/copyright",
+    "snapshot_sha256": "63cda4fd16cdc4c20421f68de0055538b2fd104d4c9d3a0a8f5239324b4b8934",
+    "water_proximity_threshold_m": 12.0,
+    "mapped_water_end_cap_review_threshold_m": 16.0,
+    "end_cap_review_method": "motor bridge=yes road near geometrically inferred water polygon cut end; NOT confirmed vehicle passage",
+    "review_status": "OSM bridge=yes candidate inventory, NOT verified moat spans",
+    "model_status": "no bridge 3D geometry generated",
+    "motor_bridge_review_sites": 2,
+    "motor_bridge_review_site_method": "within 30m and parallel (abs dot >= 0.85); groups OSM ways for review, NOT confirmed physical bridges",
+    "motor_connection_method": "shared endpoint OSM node with other motor highway way; NOT proof of driving legality or physical access",
+    "route_relation_method": "minimum full-segment distance to same-snapshot OSM race route centreline; intersections and direction alignment are geometric only, NOT proof of traffic access",
+    "directed_route_connectivity_method": "minimum directed OSM node-edge hops with incoming/outgoing way and previous-node state (same-way no_u_turn enforced), honoring known oneway, conditional oneway at audit time, roundabout, access exclusions, unconditional via-node and unambiguous single-via-way no_*/only_* restrictions; excludes unresolved conditional/multi-via-way restrictions, lane transitions and actual driving legality",
+    "motor_oneway_unresolved_way_ids": [
+      "19977738",
+      "695727399",
+      "695727400"
+    ],
+    "motor_oneway_audit_method": "oneway:conditional only evaluated for simple daily windows with explicit local HH:MM; otherwise affected ways excluded from graph; unknown oneway values excluded; motorway and roundabout default one-way",
+    "motor_access_audit_method": "motorcar > motor_vehicle > vehicle > access tag precedence; restricted/limited/unresolved ways excluded from directed graph; missing tags are NOT verified permission",
+    "turn_restriction_relation_count": 13,
+    "turn_restriction_audit_method": "unconditional via-node and unambiguous single-via-way no_*/only_* restrictions enforced; with explicit local HH:MM, plain daily via-node conditional windows also evaluated (end exclusive); other conditional/ambiguous/unsupported rules enumerated; NOT legal access proof",
+    "turn_restriction_audit_local_time": null,
+    "turn_restrictions_inactive_relation_ids": [],
+    "turn_restrictions_applied_relation_ids": [
+      "4010306",
+      "6091083",
+      "9676615",
+      "9682632",
+      "9682633",
+      "10042479",
+      "10134018",
+      "10134075",
+      "18433735"
+    ],
+    "turn_restrictions_unhandled_relation_ids": [
+      "9664480",
+      "9678994",
+      "9678995",
+      "9679502"
+    ],
+    "topology_method": "line segments clipped against union of OSM water polygons; no field verification",
+    "proximity_method": "minimum full-way segment to water polygon distance (not endpoint sampling)"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "26765842",
+        "bridge": "yes",
+        "highway": "secondary_link",
+        "name": "",
+        "oneway": "yes",
+        "lanes": "1",
+        "surface": "asphalt",
+        "motor_access_tag_status": "untagged",
+        "motor_access_decisive_tag": null,
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 2,
+        "motor_road_endpoint_neighbors": [
+          [
+            "696726368"
+          ],
+          [
+            "696726365"
+          ]
+        ],
+        "route_centerline_distance_m": 8.1,
+        "route_centerline_intersections": 0,
+        "route_nearest_segment_index": 164,
+        "route_alignment_abs_dot": 0.032,
+        "directed_route_to_bridge_entry_hops": 2,
+        "directed_bridge_exit_to_route_hops": 20,
+        "water_proximity_m": 8.56,
+        "mapped_water_overlap_m": 0.0,
+        "mapped_water_boundary_crossings": 0,
+        "mapped_water_end_cap_proximity_m": 9.01,
+        "topology_status": "mapped_water_gap_motor_bridge_candidate",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": "review-site-01"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.9841107,
+            18.795723
+          ],
+          [
+            98.9841046,
+            18.7956395
+          ],
+          [
+            98.9840957,
+            18.7955162
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "58566636",
+        "bridge": "yes",
+        "highway": "service",
+        "name": "",
+        "oneway": null,
+        "lanes": null,
+        "surface": null,
+        "motor_access_tag_status": "untagged",
+        "motor_access_decisive_tag": null,
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 2,
+        "motor_road_endpoint_neighbors": [
+          [
+            "692343500"
+          ],
+          [
+            "695505101"
+          ]
+        ],
+        "route_centerline_distance_m": 0.0,
+        "route_centerline_intersections": 1,
+        "route_nearest_segment_index": 88,
+        "route_alignment_abs_dot": 0.041,
+        "directed_route_to_bridge_entry_hops": 0,
+        "directed_bridge_exit_to_route_hops": 2,
+        "water_proximity_m": 10.87,
+        "mapped_water_overlap_m": 0.0,
+        "mapped_water_boundary_crossings": 0,
+        "mapped_water_end_cap_proximity_m": 1109.49,
+        "topology_status": "nearby_unconfirmed",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.9775233,
+            18.7823624
+          ],
+          [
+            98.9774668,
+            18.7823652
+          ],
+          [
+            98.9773698,
+            18.78237
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "93180450",
+        "bridge": "yes",
+        "highway": "footway",
+        "name": "",
+        "oneway": null,
+        "lanes": null,
+        "surface": "wood",
+        "motor_access_tag_status": "not_motor_road",
+        "motor_access_decisive_tag": null,
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 0,
+        "motor_road_endpoint_neighbors": [
+          [],
+          []
+        ],
+        "route_centerline_distance_m": 5.2,
+        "route_centerline_intersections": 0,
+        "route_nearest_segment_index": 74,
+        "route_alignment_abs_dot": 0.009,
+        "directed_route_to_bridge_entry_hops": null,
+        "directed_bridge_exit_to_route_hops": null,
+        "water_proximity_m": 0.0,
+        "mapped_water_overlap_m": 12.58,
+        "mapped_water_boundary_crossings": 2,
+        "mapped_water_end_cap_proximity_m": 890.06,
+        "topology_status": "geometric_water_crossing_candidate",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.9795505,
+            18.7815941
+          ],
+          [
+            98.979542,
+            18.781376
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "207166728",
+        "bridge": "yes",
+        "highway": "footway",
+        "name": "",
+        "oneway": null,
+        "lanes": null,
+        "surface": "wood",
+        "motor_access_tag_status": "not_motor_road",
+        "motor_access_decisive_tag": null,
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 0,
+        "motor_road_endpoint_neighbors": [
+          [],
+          []
+        ],
+        "route_centerline_distance_m": 5.68,
+        "route_centerline_intersections": 0,
+        "route_nearest_segment_index": 209,
+        "route_alignment_abs_dot": 0.019,
+        "directed_route_to_bridge_entry_hops": null,
+        "directed_bridge_exit_to_route_hops": null,
+        "water_proximity_m": 0.0,
+        "mapped_water_overlap_m": 15.77,
+        "mapped_water_boundary_crossings": 2,
+        "mapped_water_end_cap_proximity_m": 146.68,
+        "topology_status": "geometric_water_crossing_candidate",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.9934886,
+            18.7915724
+          ],
+          [
+            98.9937029,
+            18.7915584
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "238840462",
+        "bridge": "yes",
+        "highway": "footway",
+        "name": "",
+        "oneway": null,
+        "lanes": null,
+        "surface": "metal",
+        "motor_access_tag_status": "not_motor_road",
+        "motor_access_decisive_tag": {
+          "key": "motor_vehicle",
+          "value": "no"
+        },
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 0,
+        "motor_road_endpoint_neighbors": [
+          [],
+          []
+        ],
+        "route_centerline_distance_m": 7.28,
+        "route_centerline_intersections": 0,
+        "route_nearest_segment_index": 92,
+        "route_alignment_abs_dot": 0.039,
+        "directed_route_to_bridge_entry_hops": null,
+        "directed_bridge_exit_to_route_hops": null,
+        "water_proximity_m": 0.0,
+        "mapped_water_overlap_m": 19.92,
+        "mapped_water_boundary_crossings": 2,
+        "mapped_water_end_cap_proximity_m": 1101.56,
+        "topology_status": "geometric_water_crossing_candidate",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.9776819,
+            18.7841566
+          ],
+          [
+            98.9779905,
+            18.7841537
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "238840463",
+        "bridge": "yes",
+        "highway": "footway",
+        "name": "",
+        "oneway": null,
+        "lanes": null,
+        "surface": null,
+        "motor_access_tag_status": "not_motor_road",
+        "motor_access_decisive_tag": null,
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 0,
+        "motor_road_endpoint_neighbors": [
+          [],
+          []
+        ],
+        "route_centerline_distance_m": 0.0,
+        "route_centerline_intersections": 1,
+        "route_nearest_segment_index": 92,
+        "route_alignment_abs_dot": 0.0,
+        "directed_route_to_bridge_entry_hops": null,
+        "directed_bridge_exit_to_route_hops": null,
+        "water_proximity_m": 1.1,
+        "mapped_water_overlap_m": 0.0,
+        "mapped_water_boundary_crossings": 0,
+        "mapped_water_end_cap_proximity_m": 1143.93,
+        "topology_status": "nearby_unconfirmed",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.9775875,
+            18.784649
+          ],
+          [
+            98.9777357,
+            18.7846421
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "320183152",
+        "bridge": "yes",
+        "highway": "footway",
+        "name": "",
+        "oneway": null,
+        "lanes": null,
+        "surface": "metal",
+        "motor_access_tag_status": "not_motor_road",
+        "motor_access_decisive_tag": null,
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 0,
+        "motor_road_endpoint_neighbors": [
+          [],
+          []
+        ],
+        "route_centerline_distance_m": 5.72,
+        "route_centerline_intersections": 0,
+        "route_nearest_segment_index": 25,
+        "route_alignment_abs_dot": 0.001,
+        "directed_route_to_bridge_entry_hops": null,
+        "directed_bridge_exit_to_route_hops": null,
+        "water_proximity_m": 0.0,
+        "mapped_water_overlap_m": 17.31,
+        "mapped_water_boundary_crossings": 2,
+        "mapped_water_end_cap_proximity_m": 466.81,
+        "topology_status": "geometric_water_crossing_candidate",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.9931886,
+            18.7836377
+          ],
+          [
+            98.9929564,
+            18.783647
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "320364172",
+        "bridge": "yes",
+        "highway": "footway",
+        "name": "",
+        "oneway": null,
+        "lanes": null,
+        "surface": null,
+        "motor_access_tag_status": "not_motor_road",
+        "motor_access_decisive_tag": {
+          "key": "motor_vehicle",
+          "value": "no"
+        },
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 0,
+        "motor_road_endpoint_neighbors": [
+          [],
+          []
+        ],
+        "route_centerline_distance_m": 5.88,
+        "route_centerline_intersections": 0,
+        "route_nearest_segment_index": 109,
+        "route_alignment_abs_dot": 0.017,
+        "directed_route_to_bridge_entry_hops": null,
+        "directed_bridge_exit_to_route_hops": null,
+        "water_proximity_m": 0.0,
+        "mapped_water_overlap_m": 17.2,
+        "mapped_water_boundary_crossings": 2,
+        "mapped_water_end_cap_proximity_m": 681.47,
+        "topology_status": "geometric_water_crossing_candidate",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.9782973,
+            18.7905688
+          ],
+          [
+            98.9779995,
+            18.7905797
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "331338373",
+        "bridge": "yes",
+        "highway": "footway",
+        "name": "",
+        "oneway": null,
+        "lanes": null,
+        "surface": null,
+        "motor_access_tag_status": "not_motor_road",
+        "motor_access_decisive_tag": null,
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 0,
+        "motor_road_endpoint_neighbors": [
+          [],
+          []
+        ],
+        "route_centerline_distance_m": 5.94,
+        "route_centerline_intersections": 0,
+        "route_nearest_segment_index": 154,
+        "route_alignment_abs_dot": 0.006,
+        "directed_route_to_bridge_entry_hops": null,
+        "directed_bridge_exit_to_route_hops": null,
+        "water_proximity_m": 0.0,
+        "mapped_water_overlap_m": 15.29,
+        "mapped_water_boundary_crossings": 2,
+        "mapped_water_end_cap_proximity_m": 79.65,
+        "topology_status": "geometric_water_crossing_candidate",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.9825773,
+            18.7955448
+          ],
+          [
+            98.982588,
+            18.7957934
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "696726366",
+        "bridge": "yes",
+        "highway": "secondary_link",
+        "name": "",
+        "oneway": "yes",
+        "lanes": "1",
+        "surface": "asphalt",
+        "motor_access_tag_status": "untagged",
+        "motor_access_decisive_tag": null,
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 2,
+        "motor_road_endpoint_neighbors": [
+          [
+            "26765843"
+          ],
+          [
+            "696726367"
+          ]
+        ],
+        "route_centerline_distance_m": 7.22,
+        "route_centerline_intersections": 0,
+        "route_nearest_segment_index": 164,
+        "route_alignment_abs_dot": 0.014,
+        "directed_route_to_bridge_entry_hops": 29,
+        "directed_bridge_exit_to_route_hops": 2,
+        "water_proximity_m": 5.3,
+        "mapped_water_overlap_m": 0.0,
+        "mapped_water_boundary_crossings": 0,
+        "mapped_water_end_cap_proximity_m": 5.35,
+        "topology_status": "mapped_water_gap_motor_bridge_candidate",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": "review-site-01"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.9841532,
+            18.7955174
+          ],
+          [
+            98.9841598,
+            18.7956375
+          ],
+          [
+            98.9841648,
+            18.795729
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "698115427",
+        "bridge": "yes",
+        "highway": "secondary_link",
+        "name": "",
+        "oneway": "yes",
+        "lanes": "1",
+        "surface": "asphalt",
+        "motor_access_tag_status": "untagged",
+        "motor_access_decisive_tag": null,
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 2,
+        "motor_road_endpoint_neighbors": [
+          [
+            "70400957"
+          ],
+          [
+            "698115428"
+          ]
+        ],
+        "route_centerline_distance_m": 11.04,
+        "route_centerline_intersections": 0,
+        "route_nearest_segment_index": 146,
+        "route_alignment_abs_dot": 0.052,
+        "directed_route_to_bridge_entry_hops": 3,
+        "directed_bridge_exit_to_route_hops": 29,
+        "water_proximity_m": 7.93,
+        "mapped_water_overlap_m": 0.0,
+        "mapped_water_boundary_crossings": 0,
+        "mapped_water_end_cap_proximity_m": 14.8,
+        "topology_status": "mapped_water_gap_motor_bridge_candidate",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": "review-site-02"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.9816847,
+            18.7957775
+          ],
+          [
+            98.981687,
+            18.7956773
+          ],
+          [
+            98.9816898,
+            18.795584
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "698115429",
+        "bridge": "yes",
+        "highway": "secondary_link",
+        "name": "",
+        "oneway": "yes",
+        "lanes": "1",
+        "surface": "asphalt",
+        "motor_access_tag_status": "untagged",
+        "motor_access_decisive_tag": null,
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 2,
+        "motor_road_endpoint_neighbors": [
+          [
+            "70400959"
+          ],
+          [
+            "698115430"
+          ]
+        ],
+        "route_centerline_distance_m": 9.18,
+        "route_centerline_intersections": 0,
+        "route_nearest_segment_index": 147,
+        "route_alignment_abs_dot": 0.048,
+        "directed_route_to_bridge_entry_hops": 19,
+        "directed_bridge_exit_to_route_hops": 3,
+        "water_proximity_m": 10.87,
+        "mapped_water_overlap_m": 0.0,
+        "mapped_water_boundary_crossings": 0,
+        "mapped_water_end_cap_proximity_m": 11.1,
+        "topology_status": "mapped_water_gap_motor_bridge_candidate",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": "review-site-02"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.9817247,
+            18.7956004
+          ],
+          [
+            98.9817218,
+            18.7956765
+          ],
+          [
+            98.9817207,
+            18.795793
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_way_id": "744567075",
+        "bridge": "yes",
+        "highway": "footway",
+        "name": "",
+        "oneway": null,
+        "lanes": null,
+        "surface": "wood",
+        "motor_access_tag_status": "not_motor_road",
+        "motor_access_decisive_tag": null,
+        "nearby_turn_restriction_relation_ids": [],
+        "motor_road_connected_ends": 0,
+        "motor_road_endpoint_neighbors": [
+          [],
+          []
+        ],
+        "route_centerline_distance_m": 5.36,
+        "route_centerline_intersections": 0,
+        "route_nearest_segment_index": 60,
+        "route_alignment_abs_dot": 0.013,
+        "directed_route_to_bridge_entry_hops": null,
+        "directed_bridge_exit_to_route_hops": null,
+        "water_proximity_m": 0.0,
+        "mapped_water_overlap_m": 17.87,
+        "mapped_water_boundary_crossings": 2,
+        "mapped_water_end_cap_proximity_m": 113.94,
+        "topology_status": "geometric_water_crossing_candidate",
+        "review_status": "OSM mapped-water geometry only; physical bridge/width not verified",
+        "motor_bridge_review_site": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            98.986914,
+            18.7811848
+          ],
+          [
+            98.9869187,
+            18.7814038
+          ]
+        ]
+      }
+    }
+  ]
+}

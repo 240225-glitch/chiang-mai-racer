@@ -1,0 +1,93 @@
+{
+  "source_snapshot_sha256": "63cda4fd16cdc4c20421f68de0055538b2fd104d4c9d3a0a8f5239324b4b8934",
+  "source": "© OpenStreetMap contributors",
+  "source_license": "ODbL 1.0",
+  "audit_date": "2026-11-01",
+  "clock": "Asia/Bangkok local time; plain daily HH:MM windows only; no date/day-of-week interpretation",
+  "purpose": "offline OSM turn and conditional-oneway candidate review; NOT proof of legal or physical bridge access",
+  "samples": {
+    "08:00": {
+      "applied_relation_ids": [
+        "4010306",
+        "6091083",
+        "9664480",
+        "9676615",
+        "9678994",
+        "9678995",
+        "9679502",
+        "9682632",
+        "9682633",
+        "10042479",
+        "10134018",
+        "10134075",
+        "18433735"
+      ],
+      "inactive_relation_ids": [],
+      "unhandled_relation_ids": [],
+      "motor_bridge_way_hops": {
+        "26765842": [
+          2,
+          20
+        ],
+        "696726366": [
+          29,
+          2
+        ],
+        "698115427": [
+          3,
+          29
+        ],
+        "698115429": [
+          19,
+          3
+        ]
+      },
+      "unresolved_oneway_way_ids": []
+    },
+    "12:00": {
+      "applied_relation_ids": [
+        "4010306",
+        "6091083",
+        "9676615",
+        "9682632",
+        "9682633",
+        "10042479",
+        "10134018",
+        "10134075",
+        "18433735"
+      ],
+      "inactive_relation_ids": [
+        "9664480",
+        "9678994",
+        "9678995",
+        "9679502"
+      ],
+      "unhandled_relation_ids": [],
+      "motor_bridge_way_hops": {
+        "26765842": [
+          2,
+          20
+        ],
+        "696726366": [
+          29,
+          2
+        ],
+        "698115427": [
+          3,
+          29
+        ],
+        "698115429": [
+          19,
+          3
+        ]
+      },
+      "unresolved_oneway_way_ids": []
+    }
+  },
+  "conditional_oneway_note": "Three residential ways in this snapshot have oneway:conditional. With no audit time they are excluded from directed reachability; with a specified time, only plain daily windows are interpreted.",
+  "default_without_audit_time_unresolved_oneway_way_ids": [
+    "19977738",
+    "695727399",
+    "695727400"
+  ]
+}

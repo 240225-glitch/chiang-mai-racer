@@ -81,6 +81,9 @@ bkcore.hexgl.HexGL = function(opts)
 
 	this.hud = null;
 	this.huds = [];
+	this.cornerGuide = null;
+	this.cornerGuideEnabled = opts.cornerGuide !== false;
+	this.replayViewer = null;
 
 	this.gameplay = null;
 	this.gameplays = [];
@@ -95,6 +98,13 @@ bkcore.hexgl.HexGL = function(opts)
 
 	function onKeyPress(event)
 	{
+		if(self.replayViewer)
+		{
+			if(event.keyCode == 27) self.closeReplay();
+			else if(event.keyCode == 32) { event.preventDefault(); self.toggleReplayPlayback(); }
+			else if(event.keyCode == 82) self.seekReplay(0);
+			return;
+		}
 		if(event.keyCode == 27/*escape*/ || event.keyCode == 80/*P*/)
 		{
 			self.togglePause();
@@ -189,6 +199,7 @@ bkcore.hexgl.HexGL.prototype.pause = function()
 
 	this.paused = true;
 	this.active = false;
+	if(this.cornerGuide) this.cornerGuide.hide();
 	this._pauseTime = Date.now();
 	this._shipActiveBeforePause = [];
 
@@ -259,6 +270,7 @@ bkcore.hexgl.HexGL.prototype.togglePause = function()
 
 bkcore.hexgl.HexGL.prototype.restartRace = function()
 {
+	if(this.replayViewer) this.closeReplay();
 	if(!this.gameplay) return;
 
 	var pauseOverlay = this.document.getElementById('pause');
@@ -280,6 +292,7 @@ bkcore.hexgl.HexGL.prototype.restartRace = function()
 	this._shipActiveBeforePause = [];
 	this.raceOver = false;
 	this.winner = -1;
+	if(this.cornerGuide) this.cornerGuide.reset();
 	if(this.manager && this.manager.get('game'))
 		this.manager.get('game').objects.lowFPS = 0;
 
@@ -327,6 +340,24 @@ bkcore.hexgl.HexGL.prototype.update = function()
 {
 	if(!this.active) return;
 
+	// Replay uses saved poses, not ShipControls physics or Gameplay timers.
+	if(this.replayViewer)
+	{
+		var viewer = this.replayViewer;
+		var now = Date.now();
+		if(!viewer.paused)
+		{
+			viewer.elapsed = Math.min(viewer.duration,
+				viewer.elapsed + Math.max(0, now - viewer.lastTick));
+			if(viewer.elapsed >= viewer.duration) viewer.paused = true;
+		}
+		viewer.lastTick = now;
+		viewer.data.applyInterpolated(viewer.elapsed);
+		this.updateReplayControls();
+		this.manager.renderCurrent();
+		return;
+	}
+
 	var gameplays = this.getGameplays();
 	for(var i = 0; i < gameplays.length; i++)
 	{
@@ -335,7 +366,10 @@ bkcore.hexgl.HexGL.prototype.update = function()
 	}
 
 	if(this.active)
+	{
+		if(this.cornerGuide) this.cornerGuide.update(this.getShipControls(), gameplays);
 		this.manager.renderCurrent();
+	}
 }
 
 bkcore.hexgl.HexGL.prototype.init = function()
@@ -399,6 +433,20 @@ bkcore.hexgl.HexGL.prototype.initGameplay = function()
 	for(var j = 0; j < this.gameplays.length; j++)
 		this.gameplays[j].start();
 
+	// Guidance is optional via menu and only applies to the validated OSM
+	// route. Cityscape fallback, HUD-off and replay keep it disabled.
+	this.cornerGuide = null;
+	if(this.cornerGuideEnabled && this.displayHUD && this.track.moatMode &&
+	   this.mode != 'replay' && bkcore.hexgl.CornerGuide)
+	{
+		this.cornerGuide = new bkcore.hexgl.CornerGuide(
+			this.track.analyser.route, [
+				this.document.getElementById('corner-guide-p1'),
+				this.twoPlayer ? this.document.getElementById('corner-guide-p2') : null
+			]);
+		this.cornerGuide.reset();
+	}
+
 	bkcore.Audio.play('bg');
 	bkcore.Audio.play('wind');
 	bkcore.Audio.volume('wind', 0.35);
@@ -439,9 +487,20 @@ bkcore.hexgl.HexGL.prototype.onPlayerEnd = function(index, result)
 bkcore.hexgl.HexGL.prototype.displayScore = function(f, l)
 {
 	this.active = false;
+	if(this.cornerGuide) this.cornerGuide.hide();
 	l = l || [];
 
 	var finished = this.gameplay.result == this.gameplay.results.FINISH;
+	// Replay mode already reads race-<track>-replay, but previously nothing
+	// ever wrote that key. Persist only finished solo timeattacks, leaving
+	// the last successful recording intact after a crash or storage failure.
+	var savedReplay = false;
+	if(finished && !this.twoPlayer && this.gameplay.raceData &&
+		typeof this.gameplay.raceData.save == 'function' &&
+		typeof localStorage != 'undefined')
+		savedReplay = this.gameplay.raceData.save(localStorage);
+	var replayButton = this.document.getElementById('go-replay');
+	if(replayButton) replayButton.style.display = savedReplay ? '' : 'none';
 	var fmt = function(ms)
 	{
 		ms = Math.max(0, Math.round(ms || 0));
@@ -516,10 +575,121 @@ bkcore.hexgl.HexGL.prototype.displayScore = function(f, l)
 	if(this.hud != null) this.hud.display(finished ? '完赛' : '赛车损毁');
 }
 
+// View the last validated solo recording without reloading WebGL assets or
+// entering the legacy replay Gameplay countdown. No physics runs while open.
+bkcore.hexgl.HexGL.prototype.openReplay = function(fromMenu)
+{
+	if(this.twoPlayer || !this.gameplay || this.replayViewer ||
+		(!fromMenu && this.gameplay.result != this.gameplay.results.FINISH) ||
+		(fromMenu && this.isRaceFinished())) return false;
+	var data = new bkcore.hexgl.RaceData(this.track.name, 'replay',
+		this.components.shipControls);
+	try
+	{
+		data.import(JSON.parse(localStorage.getItem('race-'+this.track.name+'-replay')));
+		// A single stationary or negative-time sample is not a watchable race.
+		if(data.last < 1 || data.data[0][0] < 0 ||
+			data.data[data.last][0] <= data.data[0][0]) return false;
+	}
+	catch(e) { return false; }
+
+	var controls = this.components.shipControls;
+	controls.reset(this.gameplay.spawn, this.gameplay.spawnRotation);
+	controls.active = false;
+	controls.clearKeys();
+	this.gameplay.active = false;
+	var duration = data.data[data.last][0];
+	this.replayViewer = {
+		data: data, duration: Math.max(0, duration), elapsed: 0,
+		paused: false, lastTick: Date.now(), fromMenu: !!fromMenu
+	};
+	data.applyInterpolated(0);
+	if(this.gameover) this.gameover.style.display = 'none';
+	if(this.containers.main && this.containers.main.parentElement)
+		this.containers.main.parentElement.style.display = 'block';
+	// The clickable nitro HUD overlaps the timeline on narrow screens.
+	// Hide it during replay; restore its exact previous inline display.
+	var raceUI = this.document.getElementById('race-ui');
+	this._replayRaceUIDisplay = raceUI ? raceUI.style.display : '';
+	if(raceUI) raceUI.style.display = 'none';
+	var controlsUI = this.document.getElementById('replay-controls');
+	if(controlsUI) controlsUI.style.display = 'flex';
+	var slider = this.document.getElementById('replay-seek');
+	if(slider) slider.max = String(Math.max(1, Math.ceil(duration)));
+	var exit = this.document.getElementById('replay-exit');
+	if(exit) exit.textContent = fromMenu ? '返回主菜单' : '返回成绩';
+	this.updateReplayControls();
+	this.active = true;
+	this.paused = false;
+	this.startLoop();
+	return true;
+};
+
+bkcore.hexgl.HexGL.prototype.updateReplayControls = function()
+{
+	var viewer = this.replayViewer;
+	if(!viewer) return;
+	var slider = this.document.getElementById('replay-seek');
+	if(slider) slider.value = String(Math.round(viewer.elapsed));
+	var button = this.document.getElementById('replay-toggle');
+	if(button) button.textContent = viewer.paused ? '播放' : '暂停';
+	var clock = this.document.getElementById('replay-clock');
+	if(clock)
+	{
+		var fmt = function(ms) {
+			var seconds = Math.floor(ms / 1000);
+			return Math.floor(seconds / 60) + ':' +
+				(seconds % 60 < 10 ? '0' : '') + seconds % 60;
+		};
+		clock.textContent = fmt(viewer.elapsed) + ' / ' + fmt(viewer.duration);
+	}
+};
+
+bkcore.hexgl.HexGL.prototype.seekReplay = function(ms)
+{
+	var viewer = this.replayViewer;
+	if(!viewer || typeof ms != 'number' || !isFinite(ms)) return false;
+	viewer.elapsed = Math.max(0, Math.min(viewer.duration, ms));
+	viewer.lastTick = Date.now();
+	viewer.data.applyInterpolated(viewer.elapsed);
+	this.updateReplayControls();
+	return true;
+};
+
+bkcore.hexgl.HexGL.prototype.toggleReplayPlayback = function()
+{
+	var viewer = this.replayViewer;
+	if(!viewer) return false;
+	if(viewer.paused && viewer.elapsed >= viewer.duration)
+		this.seekReplay(0);
+	viewer.paused = !viewer.paused;
+	viewer.lastTick = Date.now();
+	this.updateReplayControls();
+	return true;
+};
+
+bkcore.hexgl.HexGL.prototype.closeReplay = function()
+{
+	if(!this.replayViewer) return false;
+	var fromMenu = this.replayViewer.fromMenu;
+	this.replayViewer = null;
+	this.active = false;
+	if(fromMenu) { window.location.reload(); return true; }
+	var controlsUI = this.document.getElementById('replay-controls');
+	if(controlsUI) controlsUI.style.display = 'none';
+	var raceUI = this.document.getElementById('race-ui');
+	if(raceUI) raceUI.style.display = this._replayRaceUIDisplay || '';
+	if(this.containers.main && this.containers.main.parentElement)
+		this.containers.main.parentElement.style.display = 'none';
+	if(this.gameover) this.gameover.style.display = 'block';
+	return true;
+};
+
 bkcore.hexgl.HexGL.prototype.displayTwoPlayerScore = function(winner)
 {
 	this.active = false;
 	this.raceOver = true;
+	if(this.cornerGuide) this.cornerGuide.hide();
 
 	var doc = this.document;
 	var gameplays = this.gameplays;
@@ -549,6 +719,8 @@ bkcore.hexgl.HexGL.prototype.displayTwoPlayerScore = function(winner)
 	var winnerGame = winner >= 0 ? gameplays[winner] : null;
 	var winnerFinished = winnerGame != null && winnerGame.result == winnerGame.results.FINISH;
 
+	var replayButton = doc.getElementById('go-replay');
+	if(replayButton) replayButton.style.display = 'none';
 	setText('go-kicker', 'VERSUS COMPLETE');
 	setText('time', winnerFinished ? fmt(winnerGame.finishTime) : (winner >= 0 ? '获胜' : '平局'));
 	setText('go-label-best-lap', '全场最快单圈');

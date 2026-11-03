@@ -1,6 +1,6 @@
 # 清迈古城环线 · 赛道设计
 
-> 版本：v0.1（blockout 前）
+> 版本：v0.2（尺度示意 blockout 已生成，待 OSM 实测中心线）
 > 赛道 ID：`chiangmai-moat`
 
 ## 1. 为什么选这条线
@@ -205,3 +205,11 @@ out skel qt;
 - OSM 版权：<https://www.openstreetmap.org/copyright>
 - OSM2World：<https://osm2world.org/>
 - Wat Chedi Luang：<https://sketchfab.com/3d-models/wat-chedi-luang-3296a81f50484797adcb53ba66183940>
+
+## M2 示意进展（2026-10-31）
+
+最初生成 6,579.7 米圆角矩形原型；2026-10-31 已改为 6,492.2 米 OSM 外圈道路中心线，涵盖 90 个 OSM ways、5 条具名道路。14 米路宽、20 米示意水面、四个检查点仍为程序化游戏元素。详见 [OSM-PROVENANCE.md](OSM-PROVENANCE.md) 与 [M2-BLOCKOUT.md](M2-BLOCKOUT.md)。
+
+## M3 临街建筑视觉原型（2026-10-31）
+
+从已保存的 OSM XML 快照提取 815 栋距外环中心线 80m 内的建筑平面轮廓；避开赛道路面和四座历史城门，生成 2 个合并低模网格。多数高度为游戏估算，屋顶与立面不是实景复原。地图当前 9 个合并网格、15,942 tris（含非实测游戏中心虚线）；真实 GPU 帧率与街景细节待验收。

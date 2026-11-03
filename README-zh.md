@@ -2,7 +2,7 @@
 
 本文档是 [README.md](README.md) 的详细补充，记录当前可玩版本的操作、玩法与开发状态。
 
-> 当前版本仍使用 Cityscape 占位赛道；清迈古城护城河环线正在制作中。玩法系统（单人/双人、氮气、圈数、暂停、结算）已经可玩。
+> 默认入口仍保留 Cityscape；访问 ?track=moat 可进入清迈古城 OSM 外圈赛道。当前包含 6.49 km 道路、19 块护城河水体、4 座城门示意、815 栋临街建筑，以及按 OSM 真实占地轮廓生成的 Wat Chedi Luang 低模地标。所有地理数据按 ODbL 署名；建筑高度和地标三维外观是游戏示意，不是实测或扫描。Chrome headless WebGL 已通过，真实 GPU、现场道路和人工完整驾驶仍待验收。
 
 ## 启动
 
@@ -51,19 +51,39 @@ python -m http.server 8080 --bind 127.0.0.1
 - **最佳成绩**：按「赛道 + 难度 + 圈数」分别保存在浏览器 `localStorage` 中，主菜单和结算页都会显示；仅单人模式记录。
 - **暂停**：按 `P` 或 `Esc` 暂停，计时会冻结；继续后不会把暂停时间算进成绩。
 - **结算页**：单人显示总用时、最佳单圈、每圈成绩、难度 / 圈数和历史最佳；双人显示两位玩家的圈速、进度与胜负。
+- **赛后回放**：单人正常完赛后点击「观看回放」，可暂停/播放、拖动进度条、查看时间并返回成绩页；拖动会自动暂停，回放时可用空格播放/暂停、Esc 返回成绩页。主菜单也可观看当前赛道上次有效的单人完赛回放（无需再比赛一次），退出返回主菜单；损坏或不存在的回放不会显示入口。仅保存最近一次成功完赛的本地回放，不是视频文件；双人/损毁赛局不生成回放。
 - **画质**：主菜单可切换低 / 中 / 高 / 极高。配置较低时切到「中」或「低」会更流畅；双人模式会自动关闭阴影和全屏后期效果。
 - 进入比赛前会显示键位说明，点击画面继续。
 
-## 当前赛道（占位）
+## 清迈古城赛道（M2 可玩原型）
 
-当前版本仍基于 Cityscape 扩展：
+默认入口仍使用 Cityscape，保留原版作为兼容和回归测试赛道。通过 ?track=moat 进入清迈古城环线：
 
-- 赛道在 X / Z 方向整体放大 1.5 倍，保留原有高度与碰撞数据。
-- 移除了城市高楼，只保留赛道、起点门、加速带和检查点。
-- 检查点改为发光的立式光环，穿过光环即可推进圈数。
-- 双人模式中两艘飞船并排发车，各自拥有独立相机、HUD 和氮气面板。
+- **道路**：来自同一 OSM 官方 API 快照的 90 个 way，650 个路线点，约 6,492.2 m；游戏路宽统一扩展为 14 m，不代表真实道路宽度。
+- **护城河**：19 块 OSM water=moat 多边形，不再用规则矩形水带代替。
+- **城门**：Tha Phae、Chiang Mai、Suan Dok、Chang Phueak 四个 OSM historic=city_gate 节点；门楼和短墙是程序化示意。
+- **临街建筑**：815 栋 OSM 建筑轮廓合并为两张网格；776 栋高度是游戏估算，39 栋按 OSM 楼层标签推算。
+- **Wat Chedi Luang**：新增从同一 OSM 快照提取的寺院范围、古塔、Pra Wihan Luang 和城柱庙建筑轮廓；生成 4 张程序化低模网格，约 230 个三角面。它不是 Sketchfab 扫描模型，也不是历史建筑精确复原。
+- **碰撞**：车辆越出路肩时投影回道路并减速，不再立即跌落；Nitro、加速带、单人/双人检查点均沿用现有物理和 Gameplay 系统。
 
-这些内容会在 M2 / M3 阶段替换为清迈古城环线。新赛道设计见 [docs/MAP-DESIGN.md](docs/MAP-DESIGN.md)。
+当前路面、路宽、门楼形制、建筑高度与寺庙三维外观仍有示意成分。真实 GPU 性能、实地道路/单行方向、人工驾驶完整绕圈仍未验收。数据来源、快照 SHA 和 ODbL 署名见 [docs/OSM-PROVENANCE.md](docs/OSM-PROVENANCE.md)。
+
+## 赛车模型与兼容性
+
+- Cityscape 默认主车为 Grab3D CC0 赛车；双人模式第二辆为 Kenney race-future。
+- 地址加 ?car=kenney 时主车换为 Kenney；地址加 ?ship=1 时回退原版飞船。
+- 车辆模型沿用现有 ShipControls.js 物理根节点、碰撞、氮气与圈数系统；资源加载失败会保留原飞船。
+- node tests/regressions.js 验证核心驾驶逻辑、模型加载和失败回退。Chrome headless WebGL 冒烟已通过，但不能代替真实 GPU 和目标设备试玩。
+
+## 自动化验证现状
+
+在项目开发服务器的 Chrome 148 + SwiftShader 环境中，当前验证结果：
+
+- Python：32 项测试通过，覆盖 OSM 拓扑、建筑/地标数据来源、几何和生成器。
+- Node：4 套回归脚本全部通过。
+- Chrome：16 个 headless WebGL 场景通过，覆盖赛道加载、单人/双人、氮气、碰撞、回放、画质和 Cityscape 回退。
+- 测试专用路线跟随器可完成 OSM 赛道一圈并正常结算；它不是玩家自动驾驶功能，也不能证明人工驾驶手感。
+- 当前测试跟随器每圈仍约有 9 次路肩修正；真实 GPU 帧率、手动 1/3/5 圈和实地路线核验尚未完成。
 
 ## 已实现的功能
 
@@ -84,7 +104,7 @@ python -m http.server 8080 --bind 127.0.0.1
 ## 来源与许可
 
 - 原项目：[BKcore/HexGL](https://github.com/BKcore/HexGL)（作者 Thibaut Despoulain / BKcore）
-- 代码许可：**MIT License**，完整许可见根目录 `LICENSE`
+- 根目录 LICENSE 为 MIT，但 9 个旧 HexGL 源文件头仍标注 CC BY-NC 3.0，授权冲突尚待核实；不能保证全项目统一 MIT 或可商用。详见 CREDITS.md。
 - 第三方资产：见 [CREDITS.md](CREDITS.md)
 - 本项目为本地衍生版本，主要改动：
   - 移除 Google Analytics 与外链 favicon，完全离线可玩
@@ -98,3 +118,23 @@ python -m http.server 8080 --bind 127.0.0.1
   - 修复暂停 / 重开后计时与状态恢复的问题
 
 游戏画面、模型、贴图、音效等版权归原项目及各署名作者所有；MIT 许可允许复制、修改和再分发，使用时请保留原始许可与署名。
+
+
+### M3 临街建筑与 Wat Chedi Luang 地标
+
+- 815 栋 OSM 临街建筑轮廓以两张合并网格绘制，776 栋高度是游戏示意估算。
+- Wat Chedi Luang 使用 OSM way 243018795（寺院范围）、93413945（古塔）、93413944（Pra Wihan Luang）和 441418807（城柱庙）作为真实平面定位。
+- 生成器新增 4 张程序化网格：古塔、塔基支座、主殿/城柱庙墙体、屋顶；合计约 230 个三角面，保持低 draw call。
+- OSM 只提供平面轮廓和标签；古塔 38.4m 的视觉高度、屋顶形制和所有立面都是原创游戏示意，不是实测或历史复原。
+- 新增 tools/osm_wat_chedi_luang.py，要求输入 XML 与道路 route.json 的 SHA-256 完全一致，防止混用不同 OSM 快照。
+
+复现命令：
+
+~~~bash
+python3 tools/osm_wat_chedi_luang.py --osm-xml /path/to/chiang-mai-racer-osm.xml --out assets/tracks/chiangmai-moat/source-wat-chedi-luang-osm.geojson --snapshot-date 2026-10-31
+python3 tools/build_moat_blockout.py
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+python3 tests/browser_smoke.py
+~~~
+
+许可、来源 way ID、快照哈希和几何限制见 [docs/OSM-PROVENANCE.md](docs/OSM-PROVENANCE.md)。

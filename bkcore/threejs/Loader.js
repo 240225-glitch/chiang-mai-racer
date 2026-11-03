@@ -27,6 +27,7 @@ bkcore.threejs.Loader = function(opts)
 
 	this.errorCallback = opts.onError == undefined ? function(s){ console.warn("Error while loading %s.".replace("%s", s)) } : opts.onError;
 	this.loadCallback = opts.onLoad == undefined ? function(){ console.log("Loaded.") } : opts.onLoad;
+	this.fatalCallback = opts.onFatal == undefined ? function(){} : opts.onFatal;
 	this.progressCallback = opts.onProgress == undefined ? function(progress, type, name){ /**/ } : opts.onProgress;
 
 	this.types = {
@@ -40,6 +41,9 @@ bkcore.threejs.Loader = function(opts)
 
 	this.states = {};
 	this.data = {};
+	// A track may mark its indispensable road geometry as required.
+	// Optional props still use an empty r50 Geometry on failure.
+	this.requiredGeometries = {};
 
 	for(var t in this.types)
 	{
@@ -51,7 +55,9 @@ bkcore.threejs.Loader = function(opts)
 		total: 0,
 		remaining: 0,
 		loaded: 0,
-		finished: false
+		finished: false,
+		failed: false,
+		failures: []
 	};
 }
 
@@ -62,6 +68,7 @@ bkcore.threejs.Loader = function(opts)
 bkcore.threejs.Loader.prototype.load = function(data)
 {
 	var self = this;
+	this.requiredGeometries = data.requiredGeometries || {};
 
 	for(var k in this.types)
 	{
@@ -104,19 +111,22 @@ bkcore.threejs.Loader.prototype.updateState = function(type, name, state)
 		return;
 	}
 
-	if(state == true)
+	// An image error and a late load event (or repeated callbacks) must
+	// never over-count resources or fire the game-ready callback twice.
+	if(state === true && this.states[type][name] === true) return;
+	this.states[type][name] = state;
+	if(state === true)
 	{
 		this.progress.remaining--;
 		this.progress.loaded++;
 		this.progressCallback.call(this, this.progress, type, name);
 	}
-
-	this.states[type][name] = state;
-
-
-	if(this.progress.loaded == this.progress.total)
+	if(!this.progress.finished && this.progress.total > 0 &&
+		this.progress.loaded === this.progress.total)
 	{
-		this.loadCallback.call(this);
+		this.progress.finished = true;
+		// Collision/height analysers are mandatory for Cityscape physics.
+		if(!this.progress.failed) this.loadCallback.call(this);
 	}
 }
 
@@ -158,54 +168,175 @@ bkcore.threejs.Loader.prototype.loaded = function(type, name)
 	return this.states[type][name];
 }
 
+// The old HUD requires drawable images even when an optional asset is 404.
+// Use a tiny, transparent canvas with the HUD's 1920:250 aspect ratio.
+// A missing material texture uses opaque white pixels, not a broken image.
+bkcore.threejs.Loader.prototype.fallbackCanvas = function(hud)
+{
+	var canvas = document.createElement('canvas');
+	canvas.width = hud ? 192 : 2;
+	canvas.height = hud ? 25 : 2;
+	if(!hud)
+	{
+		var ctx = canvas.getContext('2d');
+		ctx.fillStyle = '#ffffff';
+		ctx.fillRect(0, 0, 2, 2);
+	}
+	return canvas;
+}
+
 bkcore.threejs.Loader.prototype.loadTexture = function(name, url)
 {
 	var self = this;
+	var completed = false;
+	var timer = null;
 	this.updateState("textures", name, false);
-	this.data.textures[name] = THREE.ImageUtils.loadTexture(
-		url, 
-		bkcore.NONE, 
-		function(){ 
-			self.updateState("textures", name, true); 
-		}, 
-		function(){ 
-			self.errorCallback.call(self, name); 
+	function finish(failed)
+	{
+		if(completed) return;
+		completed = true;
+		if(timer !== null) clearTimeout(timer);
+		if(failed)
+		{
+			self.errorCallback.call(self, name);
+			// A stalled image may never emit onerror. Keep the material
+			// drawable and allow the rest of the game to initialize.
+			var texture = self.data.textures[name];
+			if(!texture) texture = self.data.textures[name] = new THREE.Texture();
+			texture.image = self.fallbackCanvas(false);
+			texture.needsUpdate = true;
 		}
-	);
+		self.updateState("textures", name, true);
+	}
+	timer = setTimeout(function(){ finish(true); }, 15000);
+	try
+	{
+		this.data.textures[name] = THREE.ImageUtils.loadTexture(
+			url, bkcore.NONE,
+			function(){ finish(false); },
+			function(){ finish(true); }
+		);
+	}
+	catch(e) { finish(true); }
 }
 
 bkcore.threejs.Loader.prototype.loadTextureCube = function(name, url)
 {
 	var self = this;
-
-	var urls = [
-		url.replace("%1", "px"), url.replace("%1", "nx"),
-		url.replace("%1", "py"), url.replace("%1", "ny"),
-		url.replace("%1", "pz"), url.replace("%1", "nz")
-	];
-
+	var faces = ["px", "nx", "py", "ny", "pz", "nz"];
+	var images = [];
+	// r50 ImageUtils.loadTextureCube only installs onload handlers; a single
+	// 404 leaves its six-face completion callback pending forever. Build the
+	// same r50 Texture directly so every face has an error/timeout path.
+	var texture = new THREE.Texture(images, new THREE.CubeRefractionMapping());
+	texture.flipY = false;
 	this.updateState("texturesCube", name, false);
-	this.data.texturesCube[name] = THREE.ImageUtils.loadTextureCube( 
-		urls, 
-		new THREE.CubeRefractionMapping(), 
-		function(){ 
-			self.updateState("texturesCube", name, true); 
-		} 
-	);
+	this.data.texturesCube[name] = texture;
+	var completed = false;
+	var count = 0;
+	var timer = null;
+	function finish(failed)
+	{
+		if(completed) return;
+		completed = true;
+		if(timer !== null) clearTimeout(timer);
+		if(failed)
+		{
+			self.errorCallback.call(self, name);
+			// WebGL requires all six cube faces to have matching dimensions.
+			// Do not mix a 2x2 fallback with real (larger) skybox images.
+			for(var i = 0; i < 6; i++)
+				images[i] = self.fallbackCanvas(false);
+		}
+		texture.needsUpdate = true;
+		self.updateState("texturesCube", name, true);
+	}
+	timer = setTimeout(function(){ finish(true); }, 15000);
+	for(var i = 0; i < faces.length; i++)
+	{
+		var img = new Image();
+		images[i] = img;
+		img.onload = function()
+		{
+			if(completed) return;
+			count++;
+			if(count === 6) finish(false);
+		};
+		img.onerror = function(){ finish(true); };
+		img.crossOrigin = THREE.ImageUtils.crossOrigin || "anonymous";
+		try { img.src = url.replace("%1", faces[i]); }
+		catch(e) { finish(true); }
+		if(completed) break;
+	}
 }
 
+// r50 JSONLoader.load() has no HTTP error callback: 404, empty responses,
+// malformed JSON and stalled requests otherwise leave the loading screen up.
+// Keep the same JSONLoader.createModel() conversion on success, but own the
+// request lifecycle so each geometry completes exactly once.
 bkcore.threejs.Loader.prototype.loadGeometry = function(name, url)
 {
 	var self = this;
+	var done = false;
+	var timer = null;
+	var request = new XMLHttpRequest();
 	this.data.geometries[name] = null;
 	this.updateState("geometries", name, false);
-	this.jsonLoader.load(
-		url, 
-		function(a){ 
-			self.data.geometries[name] = a;
-			self.updateState("geometries", name, true); 
+	function finish(geometry)
+	{
+		if(done) return;
+		done = true;
+		if(timer !== null) clearTimeout(timer);
+		var required = !!self.requiredGeometries[name];
+		var unusable = !geometry || (required &&
+			(!geometry.faces || !geometry.faces.length ||
+			 !geometry.vertices || !geometry.vertices.length));
+		if(unusable)
+		{
+			self.errorCallback.call(self, name);
+			// The Cityscape road is essential for rendering and driving.
+			// Do not silently launch with an empty road, even when the HTTP
+			// request succeeded but its model contains no triangles.
+			if(required)
+			{
+				self.progress.failures.push(name);
+				if(!self.progress.failed)
+				{
+					self.progress.failed = true;
+					self.fatalCallback.call(self, name);
+				}
+			}
+			// Optional models may still degrade to an empty r50 Geometry.
+			if(!geometry) geometry = new THREE.Geometry();
 		}
-	);
+		self.data.geometries[name] = geometry;
+		self.updateState("geometries", name, true);
+	}
+	request.onreadystatechange = function()
+	{
+		if(done || request.readyState !== 4) return;
+		if((request.status !== 200 && request.status !== 0) || !request.responseText)
+		{
+			finish(null);
+			return;
+		}
+		try
+		{
+			var data = JSON.parse(request.responseText);
+			self.jsonLoader.createModel(data, function(geometry){ finish(geometry); },
+				self.jsonLoader.extractUrlBase(url));
+		}
+		catch(e) { finish(null); }
+	};
+	request.onerror = request.onabort = function(){ finish(null); };
+	timer = setTimeout(function(){ finish(null); }, 15000);
+	try
+	{
+		request.open("GET", url, true);
+		if(request.overrideMimeType) request.overrideMimeType("text/plain; charset=x-user-defined");
+		request.send(null);
+	}
+	catch(e) { finish(null); }
 }
 
 bkcore.threejs.Loader.prototype.loadAnalyser = function(name, url)
@@ -213,8 +344,20 @@ bkcore.threejs.Loader.prototype.loadAnalyser = function(name, url)
 	var self = this;
 	this.updateState("analysers", name, false);
 	this.data.analysers[name] = new bkcore.ImageData(
-		url, 
-		function(){ 
+		url,
+		function(){
+			self.updateState("analysers", name, true);
+		},
+		function(){
+			if(self.states.analysers[name] === true) return;
+			self.errorCallback.call(self, name);
+			self.progress.failures.push(name);
+			if(!self.progress.failed) {
+				self.progress.failed = true;
+				self.fatalCallback.call(self, name);
+			}
+			// Drain progress for diagnostics, but never call onLoad after a
+			// missing physics map. An all-zero image would disable collision.
 			self.updateState("analysers", name, true);
 		}
 	);
@@ -223,17 +366,32 @@ bkcore.threejs.Loader.prototype.loadAnalyser = function(name, url)
 bkcore.threejs.Loader.prototype.loadImage = function(name, url)
 {
 	var self = this;
+	var completed = false;
+	var timer = null;
 	this.updateState("images", name, false);
 	var e = new Image();
-	e.onload = function() { 
-		self.updateState("images", name, true) ;
-	};
-	e.crossOrigin = "anonymous";
-	e.src = url;
 	this.data.images[name] = e;
+	function finish(failed)
+	{
+		if(completed) return;
+		completed = true;
+		if(timer !== null) clearTimeout(timer);
+		if(failed)
+		{
+			self.errorCallback.call(self, name);
+			self.data.images[name] = self.fallbackCanvas(true);
+		}
+		self.updateState("images", name, true);
+	}
+	e.onload = function(){ finish(false); };
+	e.onerror = function(){ finish(true); };
+	e.crossOrigin = "anonymous";
+	timer = setTimeout(function(){ finish(true); }, 15000);
+	try { e.src = url; }
+	catch(error) { finish(true); }
 }
 
-bkcore.threejs.Loader.prototype.loadSound = function(src, name, loop){
+bkcore.threejs.Loader.prototype.loadSound = function(src, name, loop, usePanner){
     var self = this;
     this.updateState("sounds", name, false);
     
@@ -243,7 +401,8 @@ bkcore.threejs.Loader.prototype.loadSound = function(src, name, loop){
     	loop, 
     	function(){
        	 self.updateState("sounds", name, true);
-    	}
+        },
+        usePanner
     );
     
     this.data.sounds[name] = {

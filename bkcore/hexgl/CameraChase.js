@@ -27,7 +27,7 @@ bkcore.hexgl.CameraChase = function(opts)
 	this.targetObject = opts.target;
 	this.cameraCube = opts.cameraCube == undefined ? null : opts.cameraCube;
 
-	this.yoffset = opts.yoffest == undefined ? 8.0 : opts.yoffest;
+	this.yoffset = opts.yoffset == undefined ? 8.0 : opts.yoffset;
 	this.zoffset = opts.zoffset == undefined ? 10.0 : opts.zoffset;
 	this.viewOffset = opts.viewOffset == undefined ? 10.0 : opts.viewOffset;
 	this.orbitOffset = 12;

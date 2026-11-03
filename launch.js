@@ -6,7 +6,7 @@
     return document.getElementById(_);
   };
 
-  init = function(controlType, quality, hud, laps, players, difficulty, godmode) {
+  init = function(controlType, quality, hud, laps, players, difficulty, godmode, cornerGuide, fromReplayMenu) {
     var hexGL, progressbar;
     hexGL = new bkcore.hexgl.HexGL({
       document: document,
@@ -20,9 +20,10 @@
       laps: [1, 3, 5][laps],
       twoPlayer: players === 1,
       hud: hud === 1,
+      cornerGuide: cornerGuide === 1,
       controlType: players === 1 ? 0 : controlType,
       godmode: godmode,
-      track: 'Cityscape'
+      track: /(?:^|[?&])track=moat(?:&|$)/.test(window.location.search) ? 'ChiangMaiMoat' : 'Cityscape'
     });
     window.hexGL = hexGL;
     progressbar = $('progressbar');
@@ -32,10 +33,21 @@
         hexGL.init();
         $('step-3').style.display = 'none';
         $('step-4').style.display = 'block';
-        return hexGL.start();
+        hexGL.start();
+        // The menu replay loads the same static scene but skips the race.
+        // If storage changed while assets loaded, return safely to menu.
+        if (fromReplayMenu && !hexGL.openReplay(true)) window.location.reload();
       },
       onError: function(s) {
         return console.error("Error loading " + s + ".");
+      },
+      onFatal: function(name) {
+        // Do not launch a Cityscape race without real collision/height data.
+        $('progressbar').style.display = 'none';
+        $('load-error-detail').textContent =
+          '核心赛道资源（' + name + '）不可用，已停止比赛以避免错误画面或碰撞。请重试。';
+        $('load-error').style.display = 'block';
+        $('load-retry').onclick = function() { window.location.reload(); };
       },
       onProgress: function(p, t, n) {
         console.log("LOADED " + t + " : " + n + " ( " + p.loaded + " / " + p.total + " ).");
@@ -48,19 +60,54 @@
 
   defaultControls = bkcore.Utils.isTouchDevice() ? 1 : 0;
 
-  s = [['controlType', ['键盘', '触摸', '体感控制器', '手柄'], defaultControls, defaultControls, '操控：'], ['quality', ['低', '中', '高', '极高'], 3, 3, '画质：'], ['hud', ['关', '开'], 1, 1, 'HUD：'], ['laps', ['1 圈', '3 圈', '5 圈'], 1, 1, '圈数：'], ['players', ['单人', '双人'], 0, 0, '模式：'], ['difficulty', ['休闲', '竞技'], 0, 0, '难度：'], ['godmode', ['关', '开'], 0, 0, '上帝模式：']];
+  s = [['controlType', ['键盘', '触摸', '体感控制器', '手柄'], defaultControls, defaultControls, '操控：'], ['quality', ['低', '中', '高', '极高'], 3, 3, '画质：'], ['hud', ['关', '开'], 1, 1, 'HUD：'], ['laps', ['1 圈', '3 圈', '5 圈'], 1, 1, '圈数：'], ['players', ['单人', '双人'], 0, 0, '模式：'], ['difficulty', ['休闲', '竞技'], 0, 0, '难度：'], ['godmode', ['关', '开'], 0, 0, '上帝模式：'], ['cornerGuide', ['关', '开'], 1, 1, '弯道提示：']];
+
+  // Validate saved poses before exposing the menu shortcut. A corrupt or
+  // unavailable localStorage entry must not launch an unusable WebGL view.
+  var replayCache = {key: null, raw: null, valid: false};
+  var updateReplayAvailability = function() {
+    var button = $('menu-replay');
+    if (!button) return;
+    button.style.display = 'none';
+    if (s[4][3] === 1) return; // solo recordings only
+    var id = /(?:^|[?&])track=moat(?:&|$)/.test(window.location.search)
+      ? 'ChiangMaiMoat' : 'Cityscape';
+    var track = bkcore.hexgl.tracks[id] || bkcore.hexgl.tracks.Cityscape;
+    if (!track) return;
+    var key = 'race-' + track.name + '-replay';
+    try {
+      var raw = localStorage.getItem(key);
+      if (replayCache.key !== key || replayCache.raw !== raw) {
+        replayCache = {key: key, raw: raw, valid: false};
+        if (raw) {
+          var data = new bkcore.hexgl.RaceData(track.name, 'replay', null);
+          data.import(JSON.parse(raw));
+          replayCache.valid = data.last >= 1 && data.data[0][0] >= 0 &&
+            data.data[data.last][0] > data.data[0][0];
+        }
+      }
+      if (replayCache.valid) button.style.display = '';
+    } catch (_error) { replayCache.valid = false; }
+  };
 
   updateBest = function() {
     var d, el, key, l, t, val;
     el = $('best');
     if (!el) return;
+    updateReplayAvailability();
     d = s[5][3];
     l = [1, 3, 5][s[3][3]];
     if (s[4][3] === 1) {
       el.innerHTML = '最佳成绩：双人模式不记录 <span>· 同屏对战 · ' + l + ' 圈</span>';
       return;
     }
-    key = 'hexgl-best-Cityscape-' + d + '-' + l;
+    // Match HexGL.displayScore's actual track.name, including a damaged
+    // route-data.js that aliases ChiangMaiMoat to the Cityscape fallback.
+    // The old hardcoded '(blockout)' name never matched the OSM race records.
+    var trackId = /(?:^|[?&])track=moat(?:&|$)/.test(window.location.search)
+      ? 'ChiangMaiMoat' : 'Cityscape';
+    var actualTrack = bkcore.hexgl.tracks[trackId] || bkcore.hexgl.tracks.Cityscape;
+    key = 'hexgl-best-' + actualTrack.name + '-' + d + '-' + l;
     val = null;
     try {
       val = Number(localStorage.getItem(key));
@@ -75,7 +122,12 @@
 
   _fn = function(a) {
     var e, f, _ref;
-    a[3] = (_ref = u(a[0])) != null ? _ref : a[2];
+    // URL parameters are strings. Convert and range-check before using
+    // strict comparisons (players === 1, hud === 1, quality === 0).
+    // Without this, ?players=1 silently launches a solo race.
+    _ref = u(a[0]);
+    a[3] = _ref != null && /^[0-9]+$/.test(_ref) && +_ref < a[1].length
+      ? +_ref : a[2];
     e = $("s-" + a[0]);
     (f = function() {
       return e.innerHTML = a[4] + a[1][a[3]];
@@ -90,16 +142,51 @@
     _fn(a);
   }
   updateBest();
+  // Only the real OSM route supports this option. A damaged OSM route
+  // aliases Cityscape, so hide the irrelevant setting there too.
+  var selectedTrack = /(?:^|[?&])track=moat(?:&|$)/.test(window.location.search)
+    ? bkcore.hexgl.tracks.ChiangMaiMoat : bkcore.hexgl.tracks.Cityscape;
+  $('s-cornerGuide').style.display = selectedTrack && selectedTrack.moatMode ? '' : 'none';
+
+  $('menu-replay').onclick = function() {
+    updateReplayAvailability();
+    if (this.style.display === 'none') return;
+    $('step-1').style.display = 'none';
+    $('step-3').style.display = 'block';
+    // Force solo mode for a recording even if menu settings change later.
+    return init(s[0][3], s[1][3], s[2][3], s[3][3], 0, s[5][3], s[6][3], s[7][3], true);
+  };
 
   $('step-2').onclick = function() {
     $('step-2').style.display = 'none';
     $('step-3').style.display = 'block';
-    return init(s[0][3], s[1][3], s[2][3], s[3][3], s[4][3], s[5][3], s[6][3]);
+    return init(s[0][3], s[1][3], s[2][3], s[3][3], s[4][3], s[5][3], s[6][3], s[7][3]);
   };
 
   $('go-restart').onclick = function() {
     if (window.hexGL) return window.hexGL.restartRace();
     return window.location.reload();
+  };
+
+  $('go-replay').onclick = function() {
+    if (window.hexGL) return window.hexGL.openReplay();
+  };
+
+  $('replay-toggle').onclick = function() {
+    if (window.hexGL) return window.hexGL.toggleReplayPlayback();
+  };
+
+  $('replay-seek').oninput = function() {
+    if (window.hexGL && window.hexGL.replayViewer) {
+      // Dragging the timeline pauses playback so the clock cannot fight
+      // the user's finger while they select a precise saved position.
+      window.hexGL.replayViewer.paused = true;
+      return window.hexGL.seekReplay(Number(this.value));
+    }
+  };
+
+  $('replay-exit').onclick = function() {
+    if (window.hexGL) return window.hexGL.closeReplay();
   };
 
   $('go-menu').onclick = function() {

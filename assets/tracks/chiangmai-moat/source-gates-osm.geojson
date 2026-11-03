@@ -1,0 +1,83 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "source": "© OpenStreetMap contributors",
+    "license": "Open Database License (ODbL) 1.0",
+    "source_url": "https://www.openstreetmap.org/copyright",
+    "source_api_url": "https://www.openstreetmap.org/api/0.6/map?bbox=98.977,18.780,98.994,18.797",
+    "snapshot_sha256": "63cda4fd16cdc4c20421f68de0055538b2fd104d4c9d3a0a8f5239324b4b8934",
+    "review_status": "OSM historic city gate points; on-site review pending",
+    "architecture_status": "procedural stylised blockouts, NOT historical reconstructions",
+    "snapshot_date_utc": "2026-10-31"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_node_id": "1017379824",
+        "id": "tha-phae",
+        "name": "Tha Phae Gate",
+        "side": "east",
+        "name:th": "ประตูท่าแพ"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          98.9932697,
+          18.7877625
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_node_id": "6107975995",
+        "id": "chiang-mai",
+        "name": "Chiang Mai Gate",
+        "side": "south",
+        "name:th": "ประตูเชียงใหม่"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          98.9889812,
+          18.7813553
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_node_id": "6717438786",
+        "id": "suan-dok",
+        "name": "Suan Dok Gate",
+        "side": "west",
+        "name:th": "ประตูสวนดอก"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          98.9781922,
+          18.7888357
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_node_id": "11229077788",
+        "id": "chang-phueak",
+        "name": "Chang Phueak Gate",
+        "side": "north",
+        "name:th": "ประตูช้างเผือก"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          98.9865942,
+          18.7954331
+        ]
+      }
+    }
+  ]
+}

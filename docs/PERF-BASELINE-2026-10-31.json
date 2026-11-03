@@ -1,0 +1,90 @@
+{
+  "renderer": "Chrome headless SwiftShader (software WebGL)",
+  "method": "fresh page, HTTP cache disabled, localhost static server",
+  "samples_per_track": 3,
+  "tracks": {
+    "moat": {
+      "samples": [
+        {
+          "js_heap_bytes": 48494717,
+          "moat": true,
+          "navigation_load_ms": 1347.0999999046326,
+          "ready_ms": 4386.599999904633,
+          "resource_count": 67,
+          "resource_encoded_bytes": 6728881,
+          "resource_transfer_bytes": 6748981,
+          "road": true
+        },
+        {
+          "js_heap_bytes": 48082470,
+          "moat": true,
+          "navigation_load_ms": 1424.8000001907349,
+          "ready_ms": 4493.400000095367,
+          "resource_count": 67,
+          "resource_encoded_bytes": 6728881,
+          "resource_transfer_bytes": 6748981,
+          "road": true
+        },
+        {
+          "js_heap_bytes": 48429425,
+          "moat": true,
+          "navigation_load_ms": 1412.8000001907349,
+          "ready_ms": 4602.5,
+          "resource_count": 67,
+          "resource_encoded_bytes": 6728881,
+          "resource_transfer_bytes": 6748981,
+          "road": true
+        }
+      ],
+      "median": {
+        "ready_ms": 4493.4,
+        "resource_count": 67,
+        "resource_transfer_bytes": 6748981,
+        "resource_encoded_bytes": 6728881,
+        "js_heap_bytes": 48429425
+      }
+    },
+    "cityscape": {
+      "samples": [
+        {
+          "js_heap_bytes": 78627632,
+          "moat": false,
+          "navigation_load_ms": 1432.1000003814697,
+          "ready_ms": 5565.10000038147,
+          "resource_count": 79,
+          "resource_encoded_bytes": 7369365,
+          "resource_transfer_bytes": 7393065,
+          "road": false
+        },
+        {
+          "js_heap_bytes": 78740616,
+          "moat": false,
+          "navigation_load_ms": 1388.3000001907349,
+          "ready_ms": 5361.400000095367,
+          "resource_count": 79,
+          "resource_encoded_bytes": 7369365,
+          "resource_transfer_bytes": 7393065,
+          "road": false
+        },
+        {
+          "js_heap_bytes": 78833439,
+          "moat": false,
+          "navigation_load_ms": 1961.4000000953674,
+          "ready_ms": 5323.699999809265,
+          "resource_count": 79,
+          "resource_encoded_bytes": 7369365,
+          "resource_transfer_bytes": 7393065,
+          "road": false
+        }
+      ],
+      "median": {
+        "ready_ms": 5361.4,
+        "resource_count": 79,
+        "resource_transfer_bytes": 7393065,
+        "resource_encoded_bytes": 7369365,
+        "js_heap_bytes": 78740616
+      }
+    }
+  },
+  "browser_version": "148.0.7778.96"
+}

@@ -62,7 +62,7 @@ That said, feel free to post issues, patches, or anything to make the game bette
 
 - 用清迈古城护城河环线替换 Cityscape 占位赛道
 - 建立 OBJ → 自定义 JSON 资产管线
-- 接入 CC0 低模车辆
+- 接入 CC0 低模车辆（2026-10-31：Cityscape 异步车型切换，浏览器验收待完成）
 
 ### 已暂缓
 
