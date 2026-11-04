@@ -300,7 +300,7 @@ THREE.StaticModelLoader.build = function (data) { /* ... */ };
 
 ### M3 OSM 临街建筑低模管线（2026-10-31）
 
-离线 tools/osm_roadside_buildings.py 从同一 OSM XML 快照提取赛道 80m 范围内建筑平面轮廓并保留 ODbL/way ID；tools/build_moat_blockout.py 将 815 栋建筑的立面和屋顶分别合并为两个 cmr-static-v1 网格。总赛道 9 个网格、15,942 tris（包含 1 个中心虚线网格）；r50dev 的旧版 THREE.Geometry 加载路径不变。多数建筑高度为视觉估算，非实测。当前使用全环线合并网格（低 draw call，但没有分块视锥剔除）；真实 GPU 内存、帧率和按 200m 分块/LOD 仍需验证。
+离线 tools/osm_roadside_buildings.py 从同一 OSM XML 快照提取赛道 80m 范围内建筑平面轮廓并保留 ODbL/way ID；tools/build_moat_blockout.py 将 815 栋建筑的立面和屋顶按约 350m 路段分块合并为 38 个 cmr-static-v1 网格，避免整圈巨型包围盒。r50dev 的旧版 THREE.Geometry 加载路径不变。多数建筑高度为视觉估算，非实测。真实 GPU 内存、帧率和更细 LOD 仍需验证。
 
 
 ### M2 急弯操控参数（2026-10-31）
@@ -337,7 +337,7 @@ ShipControls.update(dt) 原来即使 active=false 也执行 boosterCheck() 和�
 
 旧版 THREE.Geometry.computeBoundingSphere() 不是现代中心点半径算法：它直接对 geometry.vertices 取距 **(0,0,0)** 的最大长度，Mesh.boundRadius 再用于 frustum culling。全局 X/Z 坐标下即使将 815 栋建筑拆成 19 段，包围球仍会跨越约 1km，导致背面建筑无法有效剔除。
 
-离线生成器现在按 350m 路程桶聚合建筑，每桶墙/顶各一 mesh，并在 cmr-static-v1 的 mesh 中增加可选 `offset: [x,y,z]`。positions 以该块包围盒中心为局部原点，StaticModelLoader.build() 在 THREE.Mesh.position.set(...) 中恢复世界位置。可选 offset 经过长度/有限数值验证；原车辆/Cityscape 资源不含 offset，行为不变。当前 19 块、38 个建筑网格、全部场景 49 meshes/16,172 triangles，建筑最大局部包围球半径约 201.68m。实际 GPU 帧率/绘制调用仍需量化；更细分块可能增加 CPU 和 draw calls。
+离线生成器现在按 350m 路程桶聚合建筑，每桶墙/顶各一 mesh，并在 cmr-static-v1 的 mesh 中增加可选 `offset: [x,y,z]`。positions 以该块包围盒中心为局部原点，StaticModelLoader.build() 在 THREE.Mesh.position.set(...) 中恢复世界位置。可选 offset 经过长度/有限数值验证；原车辆/Cityscape 资源不含 offset，行为不变。当前 19 块、38 个建筑网格、全部 OSM 场景 **75 meshes / 20 materials / 24,030 triangles**（含示意地面、树木和路灯），建筑最大局部包围球半径约 201.68m。实际 GPU 帧率/绘制调用仍需量化；更细分块可能增加 CPU 和 draw calls。
 
 
 ### 2026-10-31：r50 建筑分块实际 draw-call A/B 测试

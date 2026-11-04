@@ -790,3 +790,15 @@ tests/browser_smoke.py 增加第 8 场景：HTTP 测试服务器仅在内存里�
 - 现在 `StaticModelLoader` 的 `legacyHex` 直接向材质传数字 `0xRRGGBB`，导入材质默认 `ambient` 降为 `0x222222`；CC0 车加载成功后隐藏 `booster`、`boosterSprite`、`boosterLight`。仅 moat 使用 Bloom `0.35`（Cityscape 保持 `0.8`）和太阳强度 `1.1`（Cityscape 保持 `1.5`），原 Cityscape 画面不变。
 - 使用本地无缓存服务器 `:8082` 与内置 Chrome 实测：高画质 `?track=moat&quality=3` 读取到 road `#4a4843`、ambient `#222222`、bloom `0.35`、sun `1.1`，助推器视觉已隐藏；低画质 `?quality=0` 无 Bloom，材质颜色正常。起点和短暂前进截图不再全屏发白或出现白色星芒，控制台无 error。
 - 回归：Node **12/12 套**、Python **65/65**、相关 JS `node --check`、`git diff --check` 均通过。内置浏览器验证覆盖起点与短程驾驶，不等同于完整圈速或真实 GPU 验收；真实 GPU、人工完整驾驶、OSM 现场路桥核验、HexGL CC BY-NC 授权冲突仍未解决。
+
+## 2026-11-04 · M3 OSM 地面、树木与 Lanna 路灯（当前轮）
+
+- 本轮从 `6825bcf` 继续，先核对 Git 状态和 WORK_CONTINUITY、ROADMAP、M2-BLOCKOUT、ENGINE；没有回退旧快照，未触碰线上 `/www/wwwroot/gta.jizhang.org`。
+- 修复 OSM 场景悬空与空旷问题：新增 `TERRAIN_Y = -0.25` 和 16 km 单面朝上的 `illustrative-ground`。地面只在同时提供 OSM 水体与建筑时生成，`--schematic` 与仅水体模式的原有网格/材质输出保持不变。
+- 把临街建筑、四座城门、Wat Chedi Luang 塔基/墙体、急弯警告牌、树干与灯座统一落到 `TERRAIN_Y`；警告牌箭头也随基座下移。地面和道具是游戏示意，不是现场地形、真实树木位置或历史灯具复原。
+- 新增原创低模街景：每约 80 m 交替放置一棵树和一盏 Lanna 风格路灯，最终各 **81** 个。道具位于道路外侧约 **10.2 m**，最近净距实测为建筑 **3.60 m**、水体 **16.80 m**、城门 **40.82 m**、警告牌 **10.11 m**；树木缩放 **0.85–1.17**，最大树冠半径约 **2.57 m**。所有位置由离线生成器计算，不声称对应 OSM 树木或市政设施。
+- 新材质为地面 `#73775a`、树干 `#6a4b34`、树冠 `#4f7a3e`、灯杆 `#3f332c`、灯罩 `#f0c36b`（`emissive:"#5f3f10"`）。`StaticModelLoader` 现在把材质 `emissive` 转成数字 hex，避免 r50 将 `#RRGGBB` 解析成黑色。
+- 重新生成 `assets/tracks/chiangmai-moat/road.json`：**20 materials / 75 meshes / 24,030 triangles**；`route.json` 与 `route-data.js` 内容未变。重复运行生成器后三个文件 SHA256 完全一致，确认结果可复现。
+- 测试：完整 Python **68/68**、`node tests/regressions.js` **4 组**、`node --check`、`python -m py_compile`、`git diff --check` 均通过。新增测试覆盖地面朝向/尺寸、OSM 场景门槛、道具数量/材质/网格三角形数、与道路/建筑/水体/城门/警告牌的净距，以及所有基座落地。
+- 内置浏览器实机验证：高画质 `?track=moat&quality=3` 与低画质 `?quality=0` 均加载 75 个道路子网格，地面 `#73775a`、Y `-0.25`，灯罩 `#f0c36b` / emissive `#5f3f10`；低画质确认无 Bloom，两个页面 console 无 error。用 canvas `toDataURL` 下载起点、东侧和西侧街景截图，确认地面、树木、路灯和落地建筑可见。浏览器截图 API 因窗口不可见失败，不能等同于完整 Selenium 冒烟、真实 GPU 或人工整圈验收。
+- 仍需真实 GPU、人工完整驾驶、OSM 现场道路/桥梁核验，以及完整 `tests/browser_smoke.py` 回归；本机缺少 Selenium，未在本轮运行该套件。原 HexGL CC BY-NC 与 MIT 目标的授权冲突仍未解决。

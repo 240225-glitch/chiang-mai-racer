@@ -13,7 +13,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"tools"))
 from build_moat_blockout import (
     DEFAULT_BUILDINGS, DEFAULT_GEOJSON, DEFAULT_GATES, DEFAULT_WATER,
-    CENTER_LAT, CENTER_LON, import_geojson, load_historic_gates,
+    CENTER_LAT, CENTER_LON, TERRAIN_Y, import_geojson, load_historic_gates,
     load_water_polygons, load_roadside_buildings, align_gates_to_route,
     roadside_building_meshes, model, validate_geometry
 )
@@ -47,8 +47,13 @@ class RoadsideBuildingsTests(unittest.TestCase):
         pts=align_gates_to_route(pts,gates)
         buildings,_=load_roadside_buildings(DEFAULT_BUILDINGS)
         asset=model(pts,load_water_polygons(DEFAULT_WATER)[0],gates,buildings)
-        self.assertEqual(len(asset["materials"]),11)
+        self.assertEqual(len(asset["materials"]),16)
         self.assertTrue(validate_geometry(asset))
+        names=[m["name"] for m in asset["meshes"]]
+        for extra in ("illustrative-ground","street-tree-trunks",
+                      "street-tree-canopies","street-lamp-posts",
+                      "street-lamp-lanterns"):
+            self.assertIn(extra,names)
         chunks=[m for m in asset["meshes"] if m["name"].startswith("osm-roadside-")]
         self.assertGreaterEqual(len(chunks),30)
         self.assertLessEqual(len(chunks),50)
@@ -61,9 +66,9 @@ class RoadsideBuildingsTests(unittest.TestCase):
                          [m["name"].split("-")[-1] for m in roofs])
         self.assertGreater(sum(len(m["indices"]) for m in walls),10000)
         self.assertGreater(sum(len(m["indices"]) for m in roofs),3000)
-        self.assertLess(sum(len(m["indices"])//3 for m in asset["meshes"]),20000)
+        self.assertLess(sum(len(m["indices"])//3 for m in asset["meshes"]),26000)
         self.assertLessEqual(max(max(m["positions"][1::3]) for m in roofs),30.04)
-        self.assertGreaterEqual(min(min(m["positions"][1::3]) for m in walls),0)
+        self.assertGreaterEqual(min(min(m["positions"][1::3]) for m in walls),TERRAIN_Y)
         # r50 uses distance from LOCAL ORIGIN for bounding spheres. Merely
         # splitting globally-positioned geometry would NOT improve culling.
         for m in chunks:
@@ -91,7 +96,7 @@ class RoadsideBuildingsTests(unittest.TestCase):
                           max(old["positions"][axis::3]))
                 for a,b in zip(actual,original):
                     self.assertAlmostEqual(a,b,places=3)
-        self.assertEqual(sum(len(m["indices"])//3 for m in asset["meshes"]),16508)
+        self.assertEqual(sum(len(m["indices"])//3 for m in asset["meshes"]),23800)
         # A simple square: facade normals face outward, roof normal faces +Y.
         walls,roofs=roadside_building_meshes([
             ([(0,0),(10,0),(10,10),(0,10)],6)

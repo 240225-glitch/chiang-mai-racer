@@ -271,14 +271,22 @@ console.log('PASS: 1/3/5 laps, checkpoint order, replay, camera, brake, matrix')
     FrontSide:0,DoubleSide:2,ImageUtils:{loadTexture(url){return url;}}};
   const ctx=load('bkcore/threejs/StaticModelLoader.js',{THREE:three});
   const model=ctx.THREE.StaticModelLoader.build({
-    format:'cmr-static-v1',name:'test',materials:[{color:'#c8322b',specular:'#123456'}],
-    meshes:[{material:0,positions:[0,0,0,1,0,0,0,1,0],indices:[0,1,2]}]
+    format:'cmr-static-v1',name:'test',materials:[
+      {color:'#c8322b',specular:'#123456',emissive:'#5f3f10'},
+      {color:'#ffffff'}
+    ],
+    meshes:[
+      {material:0,positions:[0,0,0,1,0,0,0,1,0],indices:[0,1,2]},
+      {material:1,positions:[0,0,0,1,0,0,0,1,0],indices:[0,1,2]}
+    ]
   });
   // Numbers only: r50's Color.set() zeroes a Color instance passed through
   // MeshPhongMaterial parameters, which made every imported material black.
   assert.equal(model.children[0].material.params.color,0xc8322b);
   assert.equal(model.children[0].material.params.specular,0x123456);
   assert.equal(model.children[0].material.params.ambient,0x222222);
+  assert.equal(model.children[0].material.params.emissive,0x5f3f10);
+  assert.equal(model.children[1].material.params.emissive,0x000000);
 }
 console.log('PASS: CC0 vehicle loading/fallback and r50 material colors');
 

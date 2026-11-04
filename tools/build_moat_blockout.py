@@ -27,6 +27,9 @@ HALF_HEIGHT = 828.0
 CORNER_RADIUS = 30.0
 SAMPLE_STEP = 10.0
 ROAD_HALF_WIDTH = 7.0
+# Flat illustrative ground; all static scenery bases reach this level so
+# buildings, gates and props do not hover over the skybox.
+TERRAIN_Y = -0.25
 # Give players time to brake before 38–55 degree OSM bends.
 SHARP_TURN_WARNING_LEAD_M = 80.0
 MOAT_INNER_OFFSET = 20.0
@@ -444,7 +447,7 @@ def roadside_building_meshes(buildings, route_points=None, chunk_m=350):
         for i,a in enumerate(poly):
             b=poly[(i+1)%len(poly)]
             base=len(wall_pos)//3
-            for x,y,z in ((a[0],0,a[1]),(b[0],0,b[1]),
+            for x,y,z in ((a[0],TERRAIN_Y,a[1]),(b[0],TERRAIN_Y,b[1]),
                           (b[0],height,b[1]),(a[0],height,a[1])):
                 wall_pos.extend((round(x,4),round(y,4),round(z,4)))
             # CCW X/Z polygon: right side is exterior, so reverse the
@@ -597,7 +600,54 @@ def _append_frustum(positions,indices,cx,cz,hx,hz,y0,y1,scale0,scale1):
     _append_oriented_quad(positions,indices,top,(0,1,0))
 
 
-def _append_polygon_walls(positions,indices,polygon,height):
+def _append_cylinder(positions,indices,cx,cz,radius,y0,y1,sides=6):
+    """Append a low-poly open cylinder centred on (cx,cz)."""
+    ring=[]
+    for k in range(sides):
+        angle=2*math.pi*k/sides
+        ring.append((cx+radius*math.cos(angle),cz+radius*math.sin(angle)))
+    for k in range(sides):
+        a=ring[k];b=ring[(k+1)%sides]
+        outward=((a[0]+b[0])/2-cx,0,(a[1]+b[1])/2-cz)
+        _append_oriented_quad(positions,indices,
+            [(a[0],y0,a[1]),(b[0],y0,b[1]),
+             (b[0],y1,b[1]),(a[0],y1,a[1])],outward)
+
+
+def _append_cone(positions,indices,cx,cz,radius,y0,y1,sides=6,cap=False):
+    """Append a low-poly cone; optional downward base disc for tree canopies."""
+    ring=[]
+    for k in range(sides):
+        angle=2*math.pi*k/sides
+        ring.append((cx+radius*math.cos(angle),cz+radius*math.sin(angle)))
+    for k in range(sides):
+        a=ring[k];b=ring[(k+1)%sides]
+        outward=((a[0]+b[0])/2-cx,0,(a[1]+b[1])/2-cz)
+        _append_oriented_triangle(positions,indices,
+            [(a[0],y0,a[1]),(b[0],y0,b[1]),(cx,y1,cz)],outward)
+    if cap:
+        for k in range(sides):
+            a=ring[k];b=ring[(k+1)%sides]
+            _append_oriented_triangle(positions,indices,
+                [(a[0],y0,a[1]),(b[0],y0,b[1]),(cx,y0,cz)],(0,-1,0))
+
+
+def terrain_mesh(size=16000.0, y=TERRAIN_Y):
+    """A single low-poly ground plane under the road, moat and buildings.
+
+    Without this the imported blockout floats over the skybox. It is an
+    illustrative flat surface, not surveyed terrain or elevation data.
+    """
+    positions=[];indices=[]
+    half=size/2
+    _append_oriented_quad(positions,indices,
+        [(-half,y,-half),(half,y,-half),(half,y,half),(-half,y,half)],
+        (0,1,0))
+    return {"name":"illustrative-ground",
+            "positions":positions,"indices":indices}
+
+
+def _append_polygon_walls(positions,indices,polygon,height,base_y=0.0):
     cx=sum(x for x,_ in polygon)/len(polygon)
     cz=sum(z for _,z in polygon)/len(polygon)
     for i,a in enumerate(polygon):
@@ -605,7 +655,7 @@ def _append_polygon_walls(positions,indices,polygon,height):
         midx=(a[0]+b[0])/2
         midz=(a[1]+b[1])/2
         _append_oriented_quad(positions,indices,
-            [(a[0],0,a[1]),(b[0],0,b[1]),
+            [(a[0],base_y,a[1]),(b[0],base_y,b[1]),
              (b[0],height,b[1]),(a[0],height,a[1])],
             (midx-cx,0,midz-cz))
 
@@ -636,7 +686,7 @@ def wat_chedi_luang_meshes(landmarks,material_start):
 
     brick_pos=[];brick_idx=[]
     tiers=(
-        (0,2.5,1.00,0.98),(2.5,5,0.98,0.90),
+        (TERRAIN_Y,2.5,1.00,0.98),(2.5,5,0.98,0.90),
         (5,9,0.90,0.78),(9,13,0.78,0.65),
         (13,17.5,0.65,0.53),(17.5,22,0.53,0.42),
         (22,26,0.42,0.32),(26,30,0.32,0.23),
@@ -667,8 +717,8 @@ def wat_chedi_luang_meshes(landmarks,material_start):
     qhx=(max(qx)-min(qx))/2;qhz=(max(qz)-min(qz))/2
 
     wall_pos=[];wall_idx=[]
-    _append_polygon_walls(wall_pos,wall_idx,viharn,7.5)
-    _append_polygon_walls(wall_pos,wall_idx,shrine,4.5)
+    _append_polygon_walls(wall_pos,wall_idx,viharn,7.5,TERRAIN_Y)
+    _append_polygon_walls(wall_pos,wall_idx,shrine,4.5,TERRAIN_Y)
 
     roof_pos=[];roof_idx=[]
     _append_gable_roof(roof_pos,roof_idx,vcx,vcz,vhx*1.02,vhz*1.02,8.0,14.2)
@@ -895,11 +945,11 @@ def historic_gate_mesh(points,gates):
         # Two towers, lintel and low wall wings. No physics colliders:
         # each OSM point is on the old-city side, away from the race lane.
         for sign in (-1,1):
-            cube_into(positions,indices,x+tx*8*sign,4,z+tz*8*sign,
+            cube_into(positions,indices,x+tx*8*sign,4+TERRAIN_Y,z+tz*8*sign,
                       5,8,5,tx,tz)
-            cube_into(positions,indices,x+tx*18*sign,2.2,z+tz*18*sign,
+            cube_into(positions,indices,x+tx*18*sign,2.2+TERRAIN_Y,z+tz*18*sign,
                       14,4.4,2.2,tx,tz)
-        cube_into(positions,indices,x,7,z,13,2.4,3.0,tx,tz)
+        cube_into(positions,indices,x,7+TERRAIN_Y,z,13,2.4,3.0,tx,tz)
     return {"name":"historic-gates-blockout","material":4,
             "positions":positions,"indices":indices}
 
@@ -1031,13 +1081,13 @@ def sharp_turn_warning_meshes(points, water_polygons=None, buildings=None):
                 break
         else:
             continue
-        cube_into(panels,panel_ids,cx,1.15,cz,0.16,2.3,0.16,nx,nz)
-        cube_into(panels,panel_ids,cx,2.75,cz,2.6,1.5,0.16,nx,nz)
+        cube_into(panels,panel_ids,cx,1.15+TERRAIN_Y,cz,0.16,2.3,0.16,nx,nz)
+        cube_into(panels,panel_ids,cx,2.75+TERRAIN_Y,cz,2.6,1.5,0.16,nx,nz)
         # Dark arrow on the face seen by approaching drivers. Both faces
         # render so this remains legible with the legacy r50 renderer.
         def vertex(local_x,y):
             arrows.extend((round(cx+nx*local_x-tx*0.095,4),
-                           round(y,4),
+                           round(y+TERRAIN_Y,4),
                            round(cz+nz*local_x-tz*0.095,4)))
         start=len(arrows)//3
         for px,py in ((-0.65,2.65),(0.65,2.65),
@@ -1055,6 +1105,103 @@ def sharp_turn_warning_meshes(points, water_polygons=None, buildings=None):
         {"name":"game-sharp-turn-arrows","material":0,
          "positions":arrows,"indices":arrow_ids}
     ]
+
+
+def _warning_board_centres(warning_meshes):
+    """Board centres from the merged warning mesh, used to avoid overlaps."""
+    if not warning_meshes:
+        return []
+    panels=warning_meshes[0]["positions"]
+    centres=[]
+    stride=16*3  # pole cube (8 vertices) + board cube (8 vertices)
+    for k in range(len(panels)//stride):
+        start=k*stride+8*3
+        points=[panels[start+j:start+j+3] for j in range(0,8*3,3)]
+        centres.append((sum(p[0] for p in points)/len(points),
+                        sum(p[2] for p in points)/len(points)))
+    return centres
+
+
+def street_prop_placements(points,water_polygons,buildings,
+                           gates=None,warning_meshes=None,spacing=8,
+                           offset=10.2):
+    """Choose tree/lamp positions outside the road, water and buildings.
+
+    The spacing is in resampled centreline points (approximately 10m each).
+    Trees and lamps alternate every 40m. Everything is original low-poly
+    street furniture; no real-world tree or lamp position is claimed.
+    """
+    if not water_polygons or not buildings or spacing<2:
+        return [],[]
+    n=len(points)
+    if gates:
+        gate_points=[(g["x"],g["z"]) for g in gates]
+    else:
+        gate_points=[points[i] for i in (0,n//4,n//2,3*n//4)]
+    sign_centres=_warning_board_centres(warning_meshes)
+    trees=[];lamps=[]
+    for i in range(n):
+        x,z=points[i]
+        tree_slot=(i%spacing==6)
+        lamp_slot=(i%spacing==2)
+        if not tree_slot and not lamp_slot:
+            continue
+        nx,nz=normal(points,i)
+        px=round(x-nx*offset,4)
+        pz=round(z-nz*offset,4)
+        # Leave the checkpoint gate columns, wings and start banner clear.
+        # Measure from the actual prop position, not only the centreline.
+        if any(math.dist((px,pz),gate)<24.0 for gate in gate_points):
+            continue
+        building_clearance=min(
+            polygon_clearance((px,pz),poly) for poly,_ in buildings)
+        water_clearance=min(
+            polygon_clearance((px,pz),poly) for poly in water_polygons)
+        sign_clearance=min(
+            (math.dist((px,pz),sign) for sign in sign_centres),
+            default=float("inf"))
+        if tree_slot:
+            # Canopy radius is at most ~2.6m; keep it out of building walls.
+            if (building_clearance>=2.9 and water_clearance>=2.0 and
+                sign_clearance>=4.5):
+                scale=0.85+((i*37)%17)/50.0
+                trees.append((px,pz,round(scale,3)))
+        elif (building_clearance>=1.6 and water_clearance>=1.5 and
+              sign_clearance>=3.5):
+            lamps.append((px,pz,nx,nz))
+    return trees,lamps
+
+
+def street_props_meshes(trees,lamps):
+    """Merge low-poly moat-side trees and Lanna-style lamps into four meshes."""
+    trunk_pos=[];trunk_idx=[]
+    canopy_pos=[];canopy_idx=[]
+    for x,z,scale in trees:
+        _append_cylinder(trunk_pos,trunk_idx,x,z,0.24*scale,
+                         TERRAIN_Y,2.7*scale,sides=6)
+        _append_cone(canopy_pos,canopy_idx,x,z,2.2*scale,
+                     2.2*scale,5.0*scale,sides=6,cap=True)
+        _append_cone(canopy_pos,canopy_idx,x,z,1.5*scale,
+                     3.3*scale,6.3*scale,sides=6,cap=False)
+    post_pos=[];post_idx=[]
+    lantern_pos=[];lantern_idx=[]
+    for x,z,nx,nz in lamps:
+        cube_into(post_pos,post_idx,x,TERRAIN_Y+0.25,z,0.55,0.5,0.55,nx,nz)
+        cube_into(post_pos,post_idx,x,1.7,z,0.16,3.1,0.16,nx,nz)
+        cube_into(post_pos,post_idx,x,3.93,z,0.64,0.18,0.64,nx,nz)
+        cube_into(post_pos,post_idx,x,4.12,z,0.14,0.22,0.14,nx,nz)
+        cube_into(lantern_pos,lantern_idx,x,3.55,z,0.48,0.65,0.48,nx,nz)
+    meshes=[]
+    for name,positions,indices in (
+        ("street-tree-trunks",trunk_pos,trunk_idx),
+        ("street-tree-canopies",canopy_pos,canopy_idx),
+        ("street-lamp-posts",post_pos,post_idx),
+        ("street-lamp-lanterns",lantern_pos,lantern_idx)
+    ):
+        if positions:
+            meshes.append({"name":name,
+                           "positions":positions,"indices":indices})
+    return meshes
 
 
 def model(points,water_polygons=None,gates=None,buildings=None,landmarks=None):
@@ -1104,6 +1251,32 @@ def model(points,water_polygons=None,gates=None,buildings=None,landmarks=None):
         meshes.extend(water_bank_meshes(water_polygons,bank_material))
     # Gameplay-only bend warnings, not surveyed road signs; zero colliders.
     warnings=sharp_turn_warning_meshes(points,water_polygons,buildings)
+    if water_polygons is not None and buildings is not None:
+        # A flat ground plane keeps the OSM buildings and new street props
+        # from floating over the skybox. It is illustrative, not terrain data.
+        ground=terrain_mesh()
+        ground["material"]=len(materials)
+        materials.append({"name":"illustrative-ground",
+                          "color":"#73775a","shininess":1})
+        meshes.append(ground)
+        trees,lamps=street_prop_placements(
+            points,water_polygons,buildings,gates,warnings)
+        prop_materials={
+            "street-tree-trunks":{
+                "name":"street-tree-trunk","color":"#6a4b34","shininess":2},
+            "street-tree-canopies":{
+                "name":"street-tree-canopy","color":"#4f7a3e",
+                "shininess":2,"doubleSided":True},
+            "street-lamp-posts":{
+                "name":"street-lamp-post","color":"#3f332c","shininess":4},
+            "street-lamp-lanterns":{
+                "name":"street-lamp-glow","color":"#f0c36b",
+                "emissive":"#5f3f10","shininess":12}
+        }
+        for prop in street_props_meshes(trees,lamps):
+            prop["material"]=len(materials)
+            materials.append(prop_materials[prop["name"]])
+            meshes.append(prop)
     if warnings:
         amber=len(materials)
         materials.append({"name":"game-turn-sign-amber",

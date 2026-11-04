@@ -179,6 +179,9 @@ THREE.StaticModelLoader = (function () {
             // HexGL's bright ambient light that washes flat-colour OSM
             // blockouts out to near-white, so keep a dim neutral floor.
             ambient: legacyHex(materialData.ambient, 0x222222),
+            // r50 also passes emissive through Color.set(), so it needs a
+            // number rather than "#RRGGBB" or a Color instance.
+            emissive: legacyHex(materialData.emissive, 0x000000),
             shininess: materialData.shininess !== undefined ? materialData.shininess : 30,
             specular: legacyHex(materialData.specular, 0x111111),
             transparent: !!materialData.transparent,

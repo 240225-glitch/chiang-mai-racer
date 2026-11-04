@@ -633,3 +633,12 @@ HTTP 200 且顶点位置/宽度正确的道路模型仍可能通过错接 `race-
 - [x] 修复 M2 冻结物理时未消费氮气输入边沿，导致倒计时长按键或触摸请求在正式起跑第一帧自动释放氮气。旧实现的 Node 红灯回归先复现，冻结分支同步键位并丢弃排队请求；比赛中松开再按正常生效。
 - [x] Node 12 套、Python 65/65、语法检查通过；浏览器完整回归结果见 WORK_CONTINUITY。未调整赛车转向、加速度、氮气数值、OSM 赛道或旧版 r50dev。
 - [ ] 继续 M3 急弯人工驾驶与实机 GPU 验证；真实 OSM 路桥核验和 HexGL CC BY-NC 授权问题仍待处理。
+
+### 2026-11-04 · M3 OSM 地面与 Lanna 街景
+
+- [x] 新增 `TERRAIN_Y=-0.25` 的 16 km 示意地面，并仅在完整 OSM 水体+建筑场景生成；schematic/water-only 输出结构不变。建筑、城门、Wat Chedi Luang、警告牌、树干和灯座统一落地，不再悬空。
+- [x] 新增离线生成的 81 棵树和 81 盏原创低模 Lanna 路灯，沿道路外侧约 10.2 m 交替布置；避让建筑、水体、城门和警告牌，实测最小净距分别为 3.60 m、16.80 m、40.82 m、10.11 m。位置不代表 OSM 树木或真实市政设施。
+- [x] 材质新增地面 `#73775a`、树干 `#6a4b34`、树冠 `#4f7a3e`、灯杆 `#3f332c`、灯罩 `#f0c36b` + emissive `#5f3f10`；`StaticModelLoader` 支持数字 hex emissive，避免 r50 解析成黑色。
+- [x] 资产重新生成为 **20 materials / 75 meshes / 24,030 triangles**，重复运行 SHA256 一致；`route.json` / `route-data.js` 未变。
+- [x] 回归覆盖地面、道具、落地、间距、材质与 `emissive`；完整 Python **68/68**、Node `tests/regressions.js` **4 组**、语法和 diff 检查通过。内置浏览器高/低画质实机加载无 console error，低画质无 Bloom。
+- [ ] 完整 Selenium 浏览器套件未在本机运行（缺 Selenium），真实 GPU、人工完整驾驶、OSM 现场道路/桥梁、树木/路灯真实位置与历史形制核验仍待完成。

@@ -327,6 +327,126 @@ class MoatBlockoutTests(unittest.TestCase):
                     if m["name"]=="game-sharp-turn-signs")
         self.assertEqual(actual["positions"],signs[0]["positions"])
 
+    def test_terrain_mesh_is_upward_and_covers_the_route(self):
+        ground=blockout.terrain_mesh()
+        self.assertEqual(ground["name"],"illustrative-ground")
+        self.assertEqual(len(ground["positions"]),4*3)
+        self.assertEqual(len(ground["indices"]),2*3)
+        p=ground["positions"]
+        self.assertTrue(all(abs(y-blockout.TERRAIN_Y)<1e-9
+                            for y in p[1::3]))
+        self.assertEqual(min(p[0::3]),-8000.0)
+        self.assertEqual(max(p[0::3]),8000.0)
+        self.assertEqual(min(p[2::3]),-8000.0)
+        self.assertEqual(max(p[2::3]),8000.0)
+        a,b,c=ground["indices"][:3]
+        ax,az=p[3*a],p[3*a+2]
+        bx,bz=p[3*b],p[3*b+2]
+        cx,cz=p[3*c],p[3*c+2]
+        self.assertGreater((bz-az)*(cx-ax)-(bx-ax)*(cz-az),0)
+
+    def test_ground_and_street_props_require_full_osm_scenery(self):
+        # Schematic and water-only custom routes keep the old output shape.
+        water=[[(-50,-50),(50,-50),(50,50),(-50,50)]]
+        asset=blockout.model(self.points,water_polygons=water)
+        self.assertTrue(blockout.validate_geometry(asset))
+        self.assertNotIn("illustrative-ground",
+                         [m["name"] for m in asset["meshes"]])
+        self.assertFalse(any(m["name"].startswith("street-")
+                             for m in asset["meshes"]))
+        self.assertEqual(blockout.street_prop_placements(
+            self.points,None,None),([],[]))
+
+    def test_osm_ground_props_and_building_bases_are_clear(self):
+        points,_=blockout.import_geojson(blockout.DEFAULT_GEOJSON)
+        water,_=blockout.load_water_polygons(blockout.DEFAULT_WATER)
+        gates,_=blockout.load_historic_gates(blockout.DEFAULT_GATES)
+        points=blockout.align_gates_to_route(points,gates)
+        buildings,_=blockout.load_roadside_buildings(blockout.DEFAULT_BUILDINGS)
+        warnings=blockout.sharp_turn_warning_meshes(points,water,buildings)
+        trees,lamps=blockout.street_prop_placements(
+            points,water,buildings,gates,warnings)
+        self.assertGreater(len(trees),60)
+        self.assertGreater(len(lamps),60)
+        signs=blockout._warning_board_centres(warnings)
+        def segment_distance(point,a,b):
+            dx=b[0]-a[0];dz=b[1]-a[1]
+            t=max(0,min(1,((point[0]-a[0])*dx+
+                           (point[1]-a[1])*dz)/(dx*dx+dz*dz)))
+            return math.dist(point,(a[0]+t*dx,a[1]+t*dz))
+        def road_clearance(point):
+            return min(segment_distance(point,points[i],
+                                        points[(i+1)%len(points)])
+                       for i in range(len(points)))
+        for x,z,scale in trees:
+            self.assertGreaterEqual(road_clearance((x,z)),8.6)
+            self.assertGreaterEqual(min(blockout.polygon_clearance((x,z),poly)
+                                        for poly,_ in buildings),2.9)
+            self.assertGreaterEqual(min(blockout.polygon_clearance((x,z),poly)
+                                        for poly in water),2.0)
+            self.assertGreaterEqual(min(math.dist((x,z),(g["x"],g["z"]))
+                                        for g in gates),24.0)
+            self.assertGreaterEqual(min(math.dist((x,z),s) for s in signs),4.5)
+            self.assertGreaterEqual(scale,0.85)
+            self.assertLessEqual(scale,1.17)
+        for x,z,_nx,_nz in lamps:
+            self.assertGreaterEqual(road_clearance((x,z)),8.6)
+            self.assertGreaterEqual(min(blockout.polygon_clearance((x,z),poly)
+                                        for poly,_ in buildings),1.6)
+            self.assertGreaterEqual(min(blockout.polygon_clearance((x,z),poly)
+                                        for poly in water),1.5)
+            self.assertGreaterEqual(min(math.dist((x,z),(g["x"],g["z"]))
+                                        for g in gates),24.0)
+            self.assertGreaterEqual(min(math.dist((x,z),s) for s in signs),3.5)
+        asset=blockout.model(points,water,gates,buildings)
+        self.assertTrue(blockout.validate_geometry(asset))
+        by_name={m["name"]:m for m in asset["meshes"]}
+        materials={m["name"]:m for m in asset["materials"]}
+        for name in ("illustrative-ground","street-tree-trunks",
+                     "street-tree-canopies","street-lamp-posts",
+                     "street-lamp-lanterns"):
+            self.assertIn(name,by_name)
+        ground=by_name["illustrative-ground"]
+        self.assertEqual(len(ground["indices"]),6)
+        self.assertEqual(asset["materials"][ground["material"]]["name"],
+                         "illustrative-ground")
+        self.assertTrue(all(abs(y-blockout.TERRAIN_Y)<1e-9
+                            for y in ground["positions"][1::3]))
+        self.assertEqual(len(by_name["street-tree-trunks"]["indices"]),
+                         len(trees)*12*3)
+        self.assertEqual(len(by_name["street-tree-canopies"]["indices"]),
+                         len(trees)*18*3)
+        self.assertEqual(len(by_name["street-lamp-posts"]["indices"]),
+                         len(lamps)*48*3)
+        self.assertEqual(len(by_name["street-lamp-lanterns"]["indices"]),
+                         len(lamps)*12*3)
+        for name in ("street-tree-trunks","street-lamp-posts"):
+            mesh=by_name[name]
+            self.assertAlmostEqual(min(mesh["positions"][1::3]),
+                                   blockout.TERRAIN_Y,places=4)
+            self.assertEqual(asset["materials"][mesh["material"]]["name"],
+                             {"street-tree-trunks":"street-tree-trunk",
+                              "street-lamp-posts":"street-lamp-post"}[name])
+        self.assertEqual(materials["illustrative-ground"]["color"],"#73775a")
+        self.assertEqual(materials["street-tree-trunk"]["color"],"#6a4b34")
+        self.assertEqual(materials["street-tree-canopy"]["color"],"#4f7a3e")
+        self.assertEqual(materials["street-lamp-post"]["color"],"#3f332c")
+        self.assertEqual(materials["street-lamp-glow"]["color"],"#f0c36b")
+        self.assertEqual(materials["street-lamp-glow"]["emissive"],"#5f3f10")
+        # Buildings, gates and signs now meet the same ground plane instead
+        # of hovering over the skybox.
+        for mesh in asset["meshes"]:
+            if mesh["name"].startswith("osm-roadside-facades-"):
+                self.assertAlmostEqual(min(mesh["positions"][1::3]),
+                                       blockout.TERRAIN_Y,places=4)
+        self.assertAlmostEqual(
+            min(by_name["historic-gates-blockout"]["positions"][1::3]),
+            blockout.TERRAIN_Y,places=4)
+        self.assertAlmostEqual(
+            min(by_name["game-sharp-turn-signs"]["positions"][1::3]),
+            blockout.TERRAIN_Y,places=4)
+        self.assertEqual(asset["meshes"][-1]["name"],"game-dashed-centreline")
+
     def test_sharp_turn_sign_skips_when_both_road_sides_obstructed(self):
         points,_=blockout.import_geojson(blockout.DEFAULT_GEOJSON)
         apex,angle=blockout.sharp_turn_candidates(points)[0]

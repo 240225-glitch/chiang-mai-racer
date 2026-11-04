@@ -13,9 +13,9 @@ sys.path.insert(0,str(ROOT/"tools"))
 from osm_wat_chedi_luang import extract, FEATURES
 from build_moat_blockout import (
     DEFAULT_GEOJSON, DEFAULT_LANDMARKS, DEFAULT_WATER, DEFAULT_GATES,
-    DEFAULT_BUILDINGS, import_geojson, load_water_polygons, load_historic_gates,
-    load_roadside_buildings, load_wat_chedi_luang, align_gates_to_route,
-    model, validate_geometry
+    DEFAULT_BUILDINGS, TERRAIN_Y, import_geojson, load_water_polygons,
+    load_historic_gates, load_roadside_buildings, load_wat_chedi_luang,
+    align_gates_to_route, model, validate_geometry
 )
 
 
@@ -53,9 +53,14 @@ class WatChediLuangTests(unittest.TestCase):
         asset=model(points,water,gates,buildings,landmarks)
         self.assertTrue(validate_geometry(asset))
         self.assertGreater(len(asset["meshes"]),40)
-        self.assertEqual(len(asset["materials"]),15)
+        self.assertEqual(len(asset["materials"]),20)
         names=[mesh["name"] for mesh in asset["meshes"]]
         for name in (
+            "illustrative-ground",
+            "street-tree-trunks",
+            "street-tree-canopies",
+            "street-lamp-posts",
+            "street-lamp-lanterns",
             "wat-chedi-luang-stupa",
             "wat-chedi-luang-stupa-buttresses",
             "wat-chedi-luang-viharn-and-shrine",
@@ -63,11 +68,11 @@ class WatChediLuangTests(unittest.TestCase):
         ):
             self.assertIn(name,names)
         total=sum(len(mesh["indices"])//3 for mesh in asset["meshes"])
-        self.assertGreater(total,16000)
-        self.assertLess(total,17000)
+        self.assertGreater(total,23000)
+        self.assertLess(total,25000)
         by_name={mesh["name"]:mesh for mesh in asset["meshes"]}
         stupa=by_name["wat-chedi-luang-stupa"]
-        self.assertAlmostEqual(min(stupa["positions"][1::3]),0,places=3)
+        self.assertAlmostEqual(min(stupa["positions"][1::3]),TERRAIN_Y,places=3)
         self.assertGreater(max(stupa["positions"][1::3]),38)
         self.assertLess(max(stupa["positions"][1::3]),39)
         # No degenerate triangles: the legacy r50 renderer uses FrontSide.
