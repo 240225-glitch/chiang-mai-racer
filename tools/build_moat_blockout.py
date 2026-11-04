@@ -395,6 +395,171 @@ def load_roadside_buildings(path):
     return result,props
 
 
+WALL_TINTS=(
+    (1.00,0.98,0.91),  # limewashed cream
+    (0.98,0.89,0.72),  # pale ochre
+    (0.94,0.80,0.61),  # warm sand
+    (0.88,0.72,0.55),  # teak
+    (0.97,0.82,0.70),  # faded rose
+    (0.91,0.87,0.76),  # sage stucco
+    (1.00,0.95,0.84),  # whitewash
+    (0.82,0.67,0.52),  # dark wood
+)
+ROOF_TINTS=(
+    (1.00,0.72,0.58),
+    (0.91,0.60,0.47),
+    (1.00,0.81,0.64),
+    (0.84,0.58,0.46),
+)
+WINDOW_TINTS=(
+    (0.18,0.16,0.14),  # closed teak shutter
+    (0.13,0.28,0.26),  # dark green lattice
+    (0.25,0.19,0.15),  # deep timber
+)
+WINDOW_TRIM=(0.55,0.40,0.28)
+PLINTH_TINT=(0.47,0.42,0.36)
+EAVE_TINT=(0.33,0.24,0.18)
+HIGH_RISE_HEIGHT=14.0
+
+
+def _palette_index(polygon,salt):
+    value=salt
+    for index,(x,z) in enumerate(polygon):
+        value=(value*131+int(round(x*100))+int(round(z*100))*17+
+               index*29)&0x7fffffff
+    return value
+
+
+def _is_convex_polygon(polygon):
+    signs=[]
+    for index,a in enumerate(polygon):
+        b=polygon[(index+1)%len(polygon)]
+        c=polygon[(index+2)%len(polygon)]
+        cross=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0])
+        if abs(cross)>1e-7:
+            signs.append(cross>0)
+    return len(set(signs))<=1
+
+
+def _append_facade_quad(positions,indices,colors,vertices,color):
+    """Append a wall-aligned quad using the established outward winding."""
+    base=len(positions)//3
+    for x,y,z in vertices:
+        positions.extend((round(x,4),round(y,4),round(z,4)))
+    indices.extend((base,base+2,base+1,base,base+3,base+2))
+    colors.extend(tuple(round(max(0.0,min(1.0,c)),4) for c in color)*4)
+
+
+def _append_building_windows(positions,indices,colors,polygon,cx,cz,
+                             height,tint_index):
+    """Bake dark timber/teal windows and their lighter frames into facades."""
+    if height<4.2:
+        return
+    rows=[(1.85,min(3.15,height-0.72))]
+    if height>=7.4:
+        rows.append((4.25,min(5.55,height-0.72)))
+    for index,a in enumerate(polygon):
+        b=polygon[(index+1)%len(polygon)]
+        dx,dz=b[0]-a[0],b[1]-a[1]
+        length=math.hypot(dx,dz)
+        if length<2.8:
+            continue
+        ex,ez=dx/length,dz/length
+        mx,mz=(a[0]+b[0])/2,(a[1]+b[1])/2
+        ox,oz=mx-cx,mz-cz
+        distance=math.hypot(ox,oz)
+        if distance<1e-6:
+            continue
+        ox,oz=ox/distance,oz/distance
+        count=max(1,min(3,int(length//3.2)))
+        window_width=min(1.15,length/(count*1.8))
+        half=window_width/2
+        for row_index,(y0,y1) in enumerate(rows):
+            for k in range(count):
+                t=(k+0.5)/count
+                wx=a[0]+dx*t
+                wz=a[1]+dz*t
+                trim=(WINDOW_TRIM if (tint_index+row_index+k)%2==0
+                      else (0.62,0.46,0.33))
+                window=WINDOW_TINTS[(tint_index+row_index+k)%len(WINDOW_TINTS)]
+                # A larger, slightly recessed frame behind the dark opening.
+                _append_facade_quad(positions,indices,colors,
+                    [(wx-ex*(half+0.09)+ox*0.055,y0-0.09,wz-ez*(half+0.09)+oz*0.055),
+                     (wx+ex*(half+0.09)+ox*0.055,y0-0.09,wz+ez*(half+0.09)+oz*0.055),
+                     (wx+ex*(half+0.09)+ox*0.055,y1+0.09,wz+ez*(half+0.09)+oz*0.055),
+                     (wx-ex*(half+0.09)+ox*0.055,y1+0.09,wz-ez*(half+0.09)+oz*0.055)],
+                    trim)
+                _append_facade_quad(positions,indices,colors,
+                    [(wx-ex*half+ox*0.075,y0,wz-ez*half+oz*0.075),
+                     (wx+ex*half+ox*0.075,y0,wz+ez*half+oz*0.075),
+                     (wx+ex*half+ox*0.075,y1,wz+ez*half+oz*0.075),
+                     (wx-ex*half+ox*0.075,y1,wz-ez*half+oz*0.075)],
+                    window)
+
+
+def _append_building_roof(positions,indices,colors,polygon,height,cx,cz,
+                          roof_color,convex):
+    """Add a shallow Lanna hip roof; high-rises keep a flat tile roof."""
+    if height>HIGH_RISE_HEIGHT:
+        points,triangles=triangulate_water_polygon(polygon)
+        base=len(positions)//3
+        for x,z in points:
+            positions.extend((round(x,4),round(height+0.05,4),round(z,4)))
+            colors.extend(tuple(round(c,4) for c in roof_color))
+        indices.extend(base+i for i in triangles)
+        return
+    rise=min(3.0,max(1.15,height*0.22))
+    n=len(polygon)
+    eave=[]
+    for x,z in polygon:
+        dx,dz=x-cx,z-cz
+        distance=math.hypot(dx,dz)
+        if distance<1e-6:
+            eave.append((x,z))
+        else:
+            eave.append((x+dx/distance*0.42,z+dz/distance*0.42))
+    for index in range(n):
+        j=(index+1)%n
+        a=polygon[index];b=polygon[j]
+        ea=eave[index];eb=eave[j]
+        mx,mz=(ea[0]+eb[0])/2,(ea[1]+eb[1])/2
+        outward=(mx-cx,0,mz-cz)
+        _append_oriented_quad(positions,indices,
+            [(a[0],height,a[1]),(b[0],height,b[1]),
+             (eb[0],height+0.025,eb[1]),(ea[0],height+0.025,ea[1])],
+            (outward[0],-1,outward[2]),colors,EAVE_TINT)
+    if convex:
+        apex=(cx,height+rise,cz)
+        for index in range(n):
+            j=(index+1)%n
+            ea=eave[index];eb=eave[j]
+            mx,mz=(ea[0]+eb[0])/2,(ea[1]+eb[1])/2
+            _append_oriented_triangle(positions,indices,
+                [(ea[0],height+0.025,ea[1]),apex,
+                 (eb[0],height+0.025,eb[1])],
+                (mx-cx,rise,mz-cz),colors,roof_color)
+    else:
+        inset=[]
+        for x,z in eave:
+            inset.append((cx+(x-cx)*0.72,cz+(z-cz)*0.72))
+        top_y=height+rise
+        for index in range(n):
+            j=(index+1)%n
+            a=eave[index];b=eave[j]
+            ia=inset[index];ib=inset[j]
+            mx,mz=(a[0]+b[0])/2,(a[1]+b[1])/2
+            _append_oriented_quad(positions,indices,
+                [(a[0],height+0.025,a[1]),(b[0],height+0.025,b[1]),
+                 (ib[0],top_y,ib[1]),(ia[0],top_y,ia[1])],
+                (mx-cx,rise,mz-cz),colors,roof_color)
+        points,triangles=triangulate_water_polygon(inset)
+        base=len(positions)//3
+        for x,z in points:
+            positions.extend((round(x,4),round(top_y+0.01,4),round(z,4)))
+            colors.extend(tuple(round(c,4) for c in roof_color))
+        indices.extend(base+i for i in triangles)
+
+
 def roadside_building_meshes(buildings, route_points=None, chunk_m=350):
     """Bake facades/roofs into small meshes so r50 can frustum-cull them.
 
@@ -436,29 +601,51 @@ def roadside_building_meshes(buildings, route_points=None, chunk_m=350):
                     p[j+2]=round(p[j+2]-cz,4)
             meshes.extend((facades,roofs))
         return meshes
-    wall_pos=[];wall_idx=[]
-    roof_pos=[];roof_idx=[]
+    wall_pos=[];wall_idx=[];wall_colors=[]
+    roof_pos=[];roof_idx=[];roof_colors=[]
     for footprint,height in buildings:
         poly,triangles=triangulate_water_polygon(footprint)
-        roof_start=len(roof_pos)//3
-        for x,z in poly:
-            roof_pos.extend((round(x,4),round(height+0.04,4),round(z,4)))
-        roof_idx.extend(roof_start+i for i in triangles)
-        for i,a in enumerate(poly):
-            b=poly[(i+1)%len(poly)]
-            base=len(wall_pos)//3
-            for x,y,z in ((a[0],TERRAIN_Y,a[1]),(b[0],TERRAIN_Y,b[1]),
-                          (b[0],height,b[1]),(a[0],height,a[1])):
-                wall_pos.extend((round(x,4),round(y,4),round(z,4)))
-            # CCW X/Z polygon: right side is exterior, so reverse the
-            # inward-facing (a,b,b-top) winding for outward normals.
-            wall_idx.extend((base,base+2,base+1,
-                             base,base+3,base+2))
+        cx=sum(x for x,_ in poly)/len(poly)
+        cz=sum(z for _,z in poly)/len(poly)
+        tint_index=_palette_index(poly,17)
+        wall_tint=WALL_TINTS[tint_index%len(WALL_TINTS)]
+        roof_tint=ROOF_TINTS[_palette_index(poly,91)%len(ROOF_TINTS)]
+        convex=_is_convex_polygon(poly)
+        for index,a in enumerate(poly):
+            b=poly[(index+1)%len(poly)]
+            mx,mz=(a[0]+b[0])/2,(a[1]+b[1])/2
+            ox,oz=mx-cx,mz-cz
+            distance=math.hypot(ox,oz)
+            if distance>1e-6:
+                ox,oz=ox/distance,oz/distance
+            else:
+                ox,oz=0.0,0.0
+            # Main wall, then a darker plinth and timber eave band. The
+            # offset planes avoid z-fighting on the old r50 depth buffer.
+            _append_facade_quad(wall_pos,wall_idx,wall_colors,
+                [(a[0],TERRAIN_Y,a[1]),(b[0],TERRAIN_Y,b[1]),
+                 (b[0],height,b[1]),(a[0],height,a[1])],wall_tint)
+            plinth=min(0.9,max(0.35,height*0.12))
+            _append_facade_quad(wall_pos,wall_idx,wall_colors,
+                [(a[0]+ox*0.035,TERRAIN_Y,a[1]+oz*0.035),
+                 (b[0]+ox*0.035,TERRAIN_Y,b[1]+oz*0.035),
+                 (b[0]+ox*0.035,plinth,b[1]+oz*0.035),
+                 (a[0]+ox*0.035,plinth,a[1]+oz*0.035)],PLINTH_TINT)
+            eave=min(0.34,max(0.18,height*0.04))
+            _append_facade_quad(wall_pos,wall_idx,wall_colors,
+                [(a[0]+ox*0.045,height-eave,a[1]+oz*0.045),
+                 (b[0]+ox*0.045,height-eave,b[1]+oz*0.045),
+                 (b[0]+ox*0.045,height,b[1]+oz*0.045),
+                 (a[0]+ox*0.045,height,a[1]+oz*0.045)],EAVE_TINT)
+        _append_building_windows(wall_pos,wall_idx,wall_colors,poly,
+                                 cx,cz,height,tint_index)
+        _append_building_roof(roof_pos,roof_idx,roof_colors,poly,
+                              height,cx,cz,roof_tint,convex)
     return (
         {"name":"osm-roadside-facades","material":5,
-         "positions":wall_pos,"indices":wall_idx},
+         "positions":wall_pos,"indices":wall_idx,"colors":wall_colors},
         {"name":"osm-roadside-roofs","material":6,
-         "positions":roof_pos,"indices":roof_idx}
+         "positions":roof_pos,"indices":roof_idx,"colors":roof_colors}
     )
 
 
@@ -524,7 +711,8 @@ def load_wat_chedi_luang(path):
     return result,props
 
 
-def _append_oriented_quad(positions,indices,vertices,outward):
+def _append_oriented_quad(positions,indices,vertices,outward,
+                          colors=None,color=(1.0,1.0,1.0)):
     """Append a double-triangle quad with winding facing the supplied normal."""
     vertices=list(vertices)
     a,b,c=vertices[:3]
@@ -539,9 +727,12 @@ def _append_oriented_quad(positions,indices,vertices,outward):
     for x,y,z in vertices:
         positions.extend((round(x,4),round(y,4),round(z,4)))
     indices.extend((base,base+1,base+2,base,base+2,base+3))
+    if colors is not None:
+        colors.extend(tuple(round(max(0.0,min(1.0,c)),4) for c in color)*4)
 
 
-def _append_oriented_triangle(positions,indices,vertices,outward):
+def _append_oriented_triangle(positions,indices,vertices,outward,
+                              colors=None,color=(1.0,1.0,1.0)):
     vertices=list(vertices)
     a,b,c=vertices
     ux,uy,uz=b[0]-a[0],b[1]-a[1],b[2]-a[2]
@@ -555,6 +746,35 @@ def _append_oriented_triangle(positions,indices,vertices,outward):
     for x,y,z in vertices:
         positions.extend((round(x,4),round(y,4),round(z,4)))
     indices.extend((base,base+1,base+2))
+    if colors is not None:
+        colors.extend(tuple(round(max(0.0,min(1.0,c)),4) for c in color)*3)
+
+
+def _append_blob(positions,indices,colors,cx,cy,cz,rx,ry,rz,color,sides=6):
+    """Append a low-poly flattened sphere for a broadleaf tree canopy."""
+    top=(cx,cy+ry,cz)
+    bottom=(cx,cy-ry,cz)
+    upper=[];lower=[]
+    for k in range(sides):
+        angle=2*math.pi*k/sides
+        ca,sa=math.cos(angle),math.sin(angle)
+        upper.append((cx+rx*0.82*ca,cy+ry*0.45,cz+rz*0.82*sa))
+        lower.append((cx+rx*0.96*ca,cy-ry*0.40,cz+rz*0.96*sa))
+    for k in range(sides):
+        j=(k+1)%sides
+        midx=(upper[k][0]+upper[j][0])/2
+        midz=(upper[k][2]+upper[j][2])/2
+        _append_oriented_triangle(positions,indices,
+            [top,upper[k],upper[j]],(midx-cx,ry,midz-cz),colors,color)
+        midx=(lower[k][0]+lower[j][0])/2
+        midz=(lower[k][2]+lower[j][2])/2
+        _append_oriented_quad(positions,indices,
+            [upper[k],upper[j],lower[j],lower[k]],
+            (midx-cx,0,midz-cz),colors,color)
+        midx=(lower[k][0]+lower[j][0])/2
+        midz=(lower[k][2]+lower[j][2])/2
+        _append_oriented_triangle(positions,indices,
+            [bottom,lower[j],lower[k]],(midx-cx,-ry,midz-cz),colors,color)
 
 
 def _append_box(positions,indices,cx,cy,cz,sx,sy,sz):
@@ -632,19 +852,86 @@ def _append_cone(positions,indices,cx,cz,radius,y0,y1,sides=6,cap=False):
                 [(a[0],y0,a[1]),(b[0],y0,b[1]),(cx,y0,cz)],(0,-1,0))
 
 
-def terrain_mesh(size=16000.0, y=TERRAIN_Y):
-    """A single low-poly ground plane under the road, moat and buildings.
+def _terrain_tint(x,z):
+    """Deterministic warm dry-grass variation for the illustrative ground."""
+    green=0.5+0.5*math.sin(x*0.0021+z*0.0013)
+    warm=0.5+0.5*math.sin(x*0.0008-z*0.0017+1.7)
+    light=0.5+0.5*math.sin(x*0.0047+z*0.0031+2.9)
+    r=0.86+0.10*warm+0.02*light-0.07*green
+    g=0.83+0.07*warm+0.06*green+0.03*light
+    b=0.68+0.04*warm-0.03*green+0.04*light
+    return tuple(round(max(0.55,min(1.0,value)),4)
+                 for value in (r,g,b))
 
-    Without this the imported blockout floats over the skybox. It is an
-    illustrative flat surface, not surveyed terrain or elevation data.
+
+def terrain_mesh(size=16000.0, y=TERRAIN_Y, cells=64):
+    """A single low-poly ground grid under the road, moat and buildings.
+
+    Coordinates are warped so cells stay dense near the 1.6 km old city
+    and grow toward the horizon. It is illustrative, not surveyed terrain.
     """
-    positions=[];indices=[]
+    if size<=0 or cells<2 or cells%2:
+        raise ValueError("invalid terrain grid")
     half=size/2
-    _append_oriented_quad(positions,indices,
-        [(-half,y,-half),(half,y,-half),(half,y,half),(-half,y,half)],
-        (0,1,0))
+    positions=[];indices=[];colors=[]
+    for iz in range(cells+1):
+        uz=-1.0+2.0*iz/cells
+        z=half*(0.18*uz+0.82*uz*uz*uz)
+        for ix in range(cells+1):
+            ux=-1.0+2.0*ix/cells
+            x=half*(0.18*ux+0.82*ux*ux*ux)
+            positions.extend((round(x,4),y,round(z,4)))
+            colors.extend(_terrain_tint(x,z))
+    for iz in range(cells):
+        for ix in range(cells):
+            a=iz*(cells+1)+ix
+            b=a+1
+            c=a+cells+2
+            d=a+cells+1
+            indices.extend((a,c,b,a,d,c))
     return {"name":"illustrative-ground",
-            "positions":positions,"indices":indices}
+            "positions":positions,"indices":indices,"colors":colors}
+
+
+def horizon_ridge_mesh(y=TERRAIN_Y,segments=128):
+    """Two low-poly hill/mountain bands that close the flat horizon.
+
+    Heights and radii are deterministic illustrative silhouettes, not
+    surveyed Chiang Mai topography. They share the ground material and
+    vertex colours so the asset keeps the same 20 material slots.
+    """
+    if segments<24 or segments%2:
+        raise ValueError("invalid ridge segment count")
+    positions=[];indices=[];colors=[]
+    bands=(
+        # foot, ridge, base height, height wave, foot tint, ridge tint
+        (3900.0,5350.0,55.0,135.0,(0.62,0.68,0.50),(0.54,0.61,0.44)),
+        (6100.0,8250.0,240.0,430.0,(0.58,0.64,0.60),(0.48,0.56,0.56)),
+    )
+    for band_index,(foot_r,ridge_r,base_h,wave,foot_tint,ridge_tint) in enumerate(bands):
+        foot=[];ridge=[]
+        for k in range(segments):
+            angle=2*math.pi*k/segments
+            wobble=math.sin(angle*7.0+band_index*1.7)*0.5+math.sin(angle*13.0+0.9)*0.25
+            fr=foot_r+90.0*math.sin(angle*5.0+band_index*2.1)
+            rr=ridge_r+260.0*math.sin(angle*3.0+1.4+band_index*0.8)
+            h=base_h+wave*(0.5+0.5*math.sin(angle*4.0+0.7+band_index*0.6)+wobble*0.45)
+            foot.append((fr*math.cos(angle),y-0.05,fr*math.sin(angle)))
+            ridge.append((rr*math.cos(angle),y+h,rr*math.sin(angle)))
+        for k in range(segments):
+            j=(k+1)%segments
+            a=foot[k];b=foot[j];c=ridge[j];d=ridge[k]
+            mx=(a[0]+b[0])/2
+            mz=(a[2]+b[2])/2
+            base=len(positions)//3
+            for vertex in (a,b,c,d):
+                positions.extend((round(vertex[0],4),round(vertex[1],4),
+                                  round(vertex[2],4)))
+            indices.extend((base,base+1,base+2,base,base+2,base+3))
+            colors.extend(tuple(round(v,4) for v in foot_tint)*2)
+            colors.extend(tuple(round(v,4) for v in ridge_tint)*2)
+    return {"name":"illustrative-horizon-ridges",
+            "positions":positions,"indices":indices,"colors":colors}
 
 
 def _append_polygon_walls(positions,indices,polygon,height,base_y=0.0):
@@ -926,8 +1213,8 @@ def gate_mesh(points,checkpoint_indices=None):
         nx,nz=normal(points,i)
         for sign in (-1,1):
             cube_into(positions,indices,x+nx*9.2*sign,3.0,
-                      z+nz*9.2*sign,1.5,6,1.5,nx,nz)
-        cube_into(positions,indices,x,6.8,z,20,1.6,1.5,nx,nz)
+                      z+nz*9.2*sign,0.9,6,0.9,nx,nz)
+        cube_into(positions,indices,x,6.7,z,18.4,0.85,0.75,nx,nz)
     return {"name":"checkpoint-gates","material":3,"positions":positions,"indices":indices}
 
 def historic_gate_mesh(points,gates):
@@ -1123,13 +1410,14 @@ def _warning_board_centres(warning_meshes):
 
 
 def street_prop_placements(points,water_polygons,buildings,
-                           gates=None,warning_meshes=None,spacing=8,
+                           gates=None,warning_meshes=None,spacing=6,
                            offset=10.2):
-    """Choose tree/lamp positions outside the road, water and buildings.
+    """Choose clustered trees and Lanna lamps outside the racing corridor.
 
-    The spacing is in resampled centreline points (approximately 10m each).
-    Trees and lamps alternate every 40m. Everything is original low-poly
-    street furniture; no real-world tree or lamp position is claimed.
+    Trees form short groups every ~100 m instead of a lone cone every 80 m.
+    Lamps remain a regular 60 m rhythm on the city side. Every position is
+    original low-poly street furniture; no real-world tree or lamp position
+    is claimed.
     """
     if not water_polygons or not buildings or spacing<2:
         return [],[]
@@ -1140,17 +1428,53 @@ def street_prop_placements(points,water_polygons,buildings,
         gate_points=[points[i] for i in (0,n//4,n//2,3*n//4)]
     sign_centres=_warning_board_centres(warning_meshes)
     trees=[];lamps=[]
-    for i in range(n):
+    seen=set()
+    tree_pattern=(
+        (-4,10.0,0.0),
+        (-2,13.5,0.5),
+        (0,9.8,-0.4),
+        (2,12.8,0.4),
+        (4,10.8,-0.3),
+        (1,15.0,0.2),
+    )
+    for cluster_index,start in enumerate(range(0,n,10)):
+        # Prefer the city verge, but put two clusters in five on the moat
+        # side so the groups read as a designed avenue rather than a fence.
+        side=-1 if cluster_index%5<3 else 1
+        for di,lateral,jitter in tree_pattern:
+            i=(start+di)%n
+            x,z=points[i]
+            nx,nz=normal(points,i)
+            x0,z0=points[(i-1)%n]
+            x1,z1=points[(i+1)%n]
+            tangent_length=math.hypot(x1-x0,z1-z0)
+            if tangent_length<1e-6:
+                continue
+            tx,tz=(x1-x0)/tangent_length,(z1-z0)/tangent_length
+            px=round(x+nx*side*lateral+tx*jitter,4)
+            pz=round(z+nz*side*lateral+tz*jitter,4)
+            key=(px,pz)
+            if key in seen:
+                continue
+            if any(math.dist(key,gate)<24.0 for gate in gate_points):
+                continue
+            building_clearance=min(
+                polygon_clearance(key,poly) for poly,_ in buildings)
+            water_clearance=min(
+                polygon_clearance(key,poly) for poly in water_polygons)
+            sign_clearance=min(
+                (math.dist(key,sign) for sign in sign_centres),
+                default=float("inf"))
+            if (building_clearance>=2.9 and water_clearance>=2.0 and
+                    sign_clearance>=4.5):
+                seen.add(key)
+                scale=0.78+((i*37)%23)/45.0
+                trees.append((px,pz,round(scale,3)))
+    for i in range(0,n,spacing):
         x,z=points[i]
-        tree_slot=(i%spacing==6)
-        lamp_slot=(i%spacing==2)
-        if not tree_slot and not lamp_slot:
-            continue
         nx,nz=normal(points,i)
         px=round(x-nx*offset,4)
         pz=round(z-nz*offset,4)
-        # Leave the checkpoint gate columns, wings and start banner clear.
-        # Measure from the actual prop position, not only the centreline.
         if any(math.dist((px,pz),gate)<24.0 for gate in gate_points):
             continue
         building_clearance=min(
@@ -1160,29 +1484,36 @@ def street_prop_placements(points,water_polygons,buildings,
         sign_clearance=min(
             (math.dist((px,pz),sign) for sign in sign_centres),
             default=float("inf"))
-        if tree_slot:
-            # Canopy radius is at most ~2.6m; keep it out of building walls.
-            if (building_clearance>=2.9 and water_clearance>=2.0 and
-                sign_clearance>=4.5):
-                scale=0.85+((i*37)%17)/50.0
-                trees.append((px,pz,round(scale,3)))
-        elif (building_clearance>=1.6 and water_clearance>=1.5 and
-              sign_clearance>=3.5):
+        if (building_clearance>=1.6 and water_clearance>=1.5 and
+                sign_clearance>=3.5):
             lamps.append((px,pz,nx,nz))
     return trees,lamps
 
 
 def street_props_meshes(trees,lamps):
-    """Merge low-poly moat-side trees and Lanna-style lamps into four meshes."""
+    """Merge clustered broadleaf trees and Lanna lamps into four meshes."""
     trunk_pos=[];trunk_idx=[]
-    canopy_pos=[];canopy_idx=[]
+    canopy_pos=[];canopy_idx=[];canopy_colors=[]
     for x,z,scale in trees:
         _append_cylinder(trunk_pos,trunk_idx,x,z,0.24*scale,
                          TERRAIN_Y,2.7*scale,sides=6)
-        _append_cone(canopy_pos,canopy_idx,x,z,2.2*scale,
-                     2.2*scale,5.0*scale,sides=6,cap=True)
-        _append_cone(canopy_pos,canopy_idx,x,z,1.5*scale,
-                     3.3*scale,6.3*scale,sides=6,cap=False)
+        cluster_seed=int(round((x*0.37+z*0.61)*10))%3
+        canopy_tints=(
+            (0.92,1.00,0.82),
+            (0.76,0.88,0.68),
+            (1.00,0.90,0.66),
+        )
+        tint=canopy_tints[cluster_seed]
+        _append_blob(canopy_pos,canopy_idx,canopy_colors,
+            x,4.05*scale,z,2.25*scale,1.55*scale,2.05*scale,tint)
+        _append_blob(canopy_pos,canopy_idx,canopy_colors,
+            x-0.95*scale,4.75*scale,z+0.55*scale,
+            1.45*scale,1.15*scale,1.35*scale,
+            (tint[0]*0.82,tint[1]*0.88,tint[2]*0.74))
+        _append_blob(canopy_pos,canopy_idx,canopy_colors,
+            x+0.85*scale,4.45*scale,z-0.45*scale,
+            1.35*scale,1.05*scale,1.30*scale,
+            (tint[0]*0.96,tint[1]*0.84,tint[2]*0.72))
     post_pos=[];post_idx=[]
     lantern_pos=[];lantern_idx=[]
     for x,z,nx,nz in lamps:
@@ -1192,15 +1523,17 @@ def street_props_meshes(trees,lamps):
         cube_into(post_pos,post_idx,x,4.12,z,0.14,0.22,0.14,nx,nz)
         cube_into(lantern_pos,lantern_idx,x,3.55,z,0.48,0.65,0.48,nx,nz)
     meshes=[]
-    for name,positions,indices in (
-        ("street-tree-trunks",trunk_pos,trunk_idx),
-        ("street-tree-canopies",canopy_pos,canopy_idx),
-        ("street-lamp-posts",post_pos,post_idx),
-        ("street-lamp-lanterns",lantern_pos,lantern_idx)
+    for name,positions,indices,colors in (
+        ("street-tree-trunks",trunk_pos,trunk_idx,None),
+        ("street-tree-canopies",canopy_pos,canopy_idx,canopy_colors),
+        ("street-lamp-posts",post_pos,post_idx,None),
+        ("street-lamp-lanterns",lantern_pos,lantern_idx,None)
     ):
         if positions:
-            meshes.append({"name":name,
-                           "positions":positions,"indices":indices})
+            mesh={"name":name,"positions":positions,"indices":indices}
+            if colors is not None:
+                mesh["colors"]=colors
+            meshes.append(mesh)
     return meshes
 
 
@@ -1215,31 +1548,38 @@ def model(points,water_polygons=None,gates=None,buildings=None,landmarks=None):
            strip_mesh(points,MOAT_INNER_OFFSET,MOAT_OUTER_OFFSET,-0.06,"moat-water"))
     water["material"]=2
     materials=[
-        {"name":"road","color":"#4a4843","shininess":5},
-        {"name":"curb","color":"#c9a887","shininess":8},
-        {"name":"water","color":"#3b9da5","shininess":20},
-        {"name":"checkpoint","color":"#d9a34b","shininess":15}
+        {"name":"road","color":"#504a42","shininess":5,"ambient":"#2e2a26"},
+        {"name":"curb","color":"#b99b79","shininess":8,"ambient":"#6d5b48"},
+        {"name":"water","color":"#3f7b70","shininess":24,"ambient":"#24443f"},
+        {"name":"checkpoint","color":"#a87f4a","shininess":15,"ambient":"#4d3a20"}
     ]
     meshes=[road,curb_a,curb_b,water,gate_mesh(
         points,[g["point_index"] for g in gates] if gates is not None else None)]
     if gates is not None:
-        materials.append({"name":"historic-wall-blockout","color":"#a96548","shininess":3})
+        materials.append({"name":"historic-wall-blockout","color":"#a96548",
+                          "shininess":3,"ambient":"#4d2e23"})
         meshes.append(historic_gate_mesh(points,gates))
     if buildings is not None:
         if gates is None:
             raise ValueError("roadside building material IDs require historic gates")
         materials.extend((
-            {"name":"osm-building-facades","color":"#c8b99b","shininess":3},
-            {"name":"osm-building-roofs","color":"#8f6958","shininess":3}
+            {"name":"osm-building-facades","color":"#d8c6a4","shininess":3,
+             "ambient":"#3a3128","vertexColors":True},
+            {"name":"osm-building-roofs","color":"#a3543d","shininess":3,
+             "ambient":"#3a241c","vertexColors":True}
         ))
         meshes.extend(roadside_building_meshes(buildings,points))
     if landmarks is not None:
         landmark_material_start=len(materials)
         materials.extend((
-            {"name":"wat-chedi-luang-stupa-brick","color":"#9f6649","shininess":4},
-            {"name":"wat-chedi-luang-stupa-trim","color":"#c2a27d","shininess":6},
-            {"name":"wat-chedi-luang-viharn-walls","color":"#d4c6a4","shininess":5},
-            {"name":"wat-chedi-luang-temple-roof","color":"#8b3f36","shininess":10}
+            {"name":"wat-chedi-luang-stupa-brick","color":"#9f6649",
+             "shininess":4,"ambient":"#4b3022"},
+            {"name":"wat-chedi-luang-stupa-trim","color":"#c2a27d",
+             "shininess":6,"ambient":"#5f4f3c"},
+            {"name":"wat-chedi-luang-viharn-walls","color":"#d4c6a4",
+             "shininess":5,"ambient":"#645b4a"},
+            {"name":"wat-chedi-luang-temple-roof","color":"#8b3f36",
+             "shininess":10,"ambient":"#3f1d19"}
         ))
         meshes.extend(wat_chedi_luang_meshes(landmarks,landmark_material_start))
     if water_polygons is not None:
@@ -1247,7 +1587,8 @@ def model(points,water_polygons=None,gates=None,buildings=None,landmarks=None):
         # are original illustrative choices, not surveyed embankment data.
         bank_material=len(materials)
         materials.append({"name":"illustrative-moat-bank",
-                          "color":"#92836f","shininess":2,"doubleSided":True})
+                          "color":"#92836f","shininess":2,"ambient":"#4a4237",
+                          "doubleSided":True})
         meshes.extend(water_bank_meshes(water_polygons,bank_material))
     # Gameplay-only bend warnings, not surveyed road signs; zero colliders.
     warnings=sharp_turn_warning_meshes(points,water_polygons,buildings)
@@ -1257,21 +1598,28 @@ def model(points,water_polygons=None,gates=None,buildings=None,landmarks=None):
         ground=terrain_mesh()
         ground["material"]=len(materials)
         materials.append({"name":"illustrative-ground",
-                          "color":"#73775a","shininess":1})
+                          "color":"#8c845f","shininess":1,
+                          "ambient":"#4f4a3c","vertexColors":True})
         meshes.append(ground)
+        ridges=horizon_ridge_mesh()
+        ridges["material"]=ground["material"]
+        meshes.append(ridges)
         trees,lamps=street_prop_placements(
             points,water_polygons,buildings,gates,warnings)
         prop_materials={
             "street-tree-trunks":{
-                "name":"street-tree-trunk","color":"#6a4b34","shininess":2},
+                "name":"street-tree-trunk","color":"#6a4b34",
+                "shininess":2,"ambient":"#38281f"},
             "street-tree-canopies":{
                 "name":"street-tree-canopy","color":"#4f7a3e",
-                "shininess":2,"doubleSided":True},
+                "shininess":2,"ambient":"#2d4225",
+                "doubleSided":True,"vertexColors":True},
             "street-lamp-posts":{
-                "name":"street-lamp-post","color":"#3f332c","shininess":4},
+                "name":"street-lamp-post","color":"#3f332c",
+                "shininess":4,"ambient":"#2b231e"},
             "street-lamp-lanterns":{
                 "name":"street-lamp-glow","color":"#f0c36b",
-                "emissive":"#5f3f10","shininess":12}
+                "emissive":"#5f3f10","shininess":12,"ambient":"#72572b"}
         }
         for prop in street_props_meshes(trees,lamps):
             prop["material"]=len(materials)
@@ -1357,6 +1705,11 @@ def validate_geometry(data):
         if "offset" in mesh:
             assert len(mesh["offset"])==3
             assert all(math.isfinite(v) for v in mesh["offset"])
+        if "colors" in mesh:
+            assert len(mesh["colors"])==len(mesh["positions"])
+            assert all(0.0<=v<=1.0 and math.isfinite(v)
+                       for v in mesh["colors"])
+            assert data["materials"][mesh["material"]].get("vertexColors")
     return True
 
 def main():

@@ -330,8 +330,9 @@ class MoatBlockoutTests(unittest.TestCase):
     def test_terrain_mesh_is_upward_and_covers_the_route(self):
         ground=blockout.terrain_mesh()
         self.assertEqual(ground["name"],"illustrative-ground")
-        self.assertEqual(len(ground["positions"]),4*3)
-        self.assertEqual(len(ground["indices"]),2*3)
+        self.assertEqual(len(ground["positions"]),65*65*3)
+        self.assertEqual(len(ground["indices"]),64*64*2*3)
+        self.assertEqual(len(ground["colors"]),len(ground["positions"]))
         p=ground["positions"]
         self.assertTrue(all(abs(y-blockout.TERRAIN_Y)<1e-9
                             for y in p[1::3]))
@@ -339,11 +340,42 @@ class MoatBlockoutTests(unittest.TestCase):
         self.assertEqual(max(p[0::3]),8000.0)
         self.assertEqual(min(p[2::3]),-8000.0)
         self.assertEqual(max(p[2::3]),8000.0)
-        a,b,c=ground["indices"][:3]
-        ax,az=p[3*a],p[3*a+2]
-        bx,bz=p[3*b],p[3*b+2]
-        cx,cz=p[3*c],p[3*c+2]
-        self.assertGreater((bz-az)*(cx-ax)-(bx-ax)*(cz-az),0)
+        self.assertLess(min(ground["colors"]),0.8)
+        self.assertGreater(max(ground["colors"]),0.9)
+        ids=ground["indices"]
+        for i in range(0,len(ids),3):
+            a,b,c=ids[i:i+3]
+            ax,az=p[3*a],p[3*a+2]
+            bx,bz=p[3*b],p[3*b+2]
+            cx,cz=p[3*c],p[3*c+2]
+            self.assertGreater((bz-az)*(cx-ax)-(bx-ax)*(cz-az),0)
+        # The warped grid is dense near the old city and coarse at the edge.
+        centre=65*32+32
+        edge=65*32+33
+        self.assertLess(abs(p[3*edge]-p[3*centre]),80)
+        edge0=65*64
+        self.assertGreater(abs(p[3*edge0]-p[3*(edge0-1)]),100)
+
+    def test_horizon_ridge_closes_the_horizon_inward(self):
+        ridges=blockout.horizon_ridge_mesh()
+        self.assertEqual(ridges["name"],"illustrative-horizon-ridges")
+        self.assertEqual(len(ridges["colors"]),len(ridges["positions"]))
+        self.assertGreater(min(ridges["positions"][1::3]),blockout.TERRAIN_Y-0.1)
+        self.assertLess(max(ridges["positions"][1::3]),1000)
+        p=ridges["positions"]
+        ids=ridges["indices"]
+        for i in range(0,len(ids),3):
+            a,b,c=ids[i:i+3]
+            ax,ay,az=p[3*a:3*a+3]
+            bx,by,bz=p[3*b:3*b+3]
+            cx,cy,cz=p[3*c:3*c+3]
+            ux,uy,uz=bx-ax,by-ay,bz-az
+            vx,vy,vz=cx-ax,cy-ay,cz-az
+            nx=uy*vz-uz*vy
+            ny=uz*vx-ux*vz
+            nz=ux*vy-uy*vx
+            mx,my,mz=(ax+bx+cx)/3,(ay+by+cy)/3,(az+bz+cz)/3
+            self.assertLess(nx*mx+ny*my+nz*mz,0)
 
     def test_ground_and_street_props_require_full_osm_scenery(self):
         # Schematic and water-only custom routes keep the old output shape.
@@ -366,8 +398,8 @@ class MoatBlockoutTests(unittest.TestCase):
         warnings=blockout.sharp_turn_warning_meshes(points,water,buildings)
         trees,lamps=blockout.street_prop_placements(
             points,water,buildings,gates,warnings)
-        self.assertGreater(len(trees),60)
-        self.assertGreater(len(lamps),60)
+        self.assertGreater(len(trees),200)
+        self.assertGreater(len(lamps),100)
         signs=blockout._warning_board_centres(warnings)
         def segment_distance(point,a,b):
             dx=b[0]-a[0];dz=b[1]-a[1]
@@ -387,8 +419,8 @@ class MoatBlockoutTests(unittest.TestCase):
             self.assertGreaterEqual(min(math.dist((x,z),(g["x"],g["z"]))
                                         for g in gates),24.0)
             self.assertGreaterEqual(min(math.dist((x,z),s) for s in signs),4.5)
-            self.assertGreaterEqual(scale,0.85)
-            self.assertLessEqual(scale,1.17)
+            self.assertGreaterEqual(scale,0.78)
+            self.assertLessEqual(scale,1.3)
         for x,z,_nx,_nz in lamps:
             self.assertGreaterEqual(road_clearance((x,z)),8.6)
             self.assertGreaterEqual(min(blockout.polygon_clearance((x,z),poly)
@@ -402,20 +434,26 @@ class MoatBlockoutTests(unittest.TestCase):
         self.assertTrue(blockout.validate_geometry(asset))
         by_name={m["name"]:m for m in asset["meshes"]}
         materials={m["name"]:m for m in asset["materials"]}
-        for name in ("illustrative-ground","street-tree-trunks",
-                     "street-tree-canopies","street-lamp-posts",
-                     "street-lamp-lanterns"):
+        for name in ("illustrative-ground","illustrative-horizon-ridges",
+                     "street-tree-trunks","street-tree-canopies",
+                     "street-lamp-posts","street-lamp-lanterns"):
             self.assertIn(name,by_name)
         ground=by_name["illustrative-ground"]
-        self.assertEqual(len(ground["indices"]),6)
+        self.assertEqual(len(ground["indices"]),64*64*2*3)
+        self.assertEqual(len(ground["colors"]),len(ground["positions"]))
         self.assertEqual(asset["materials"][ground["material"]]["name"],
                          "illustrative-ground")
+        self.assertTrue(asset["materials"][ground["material"]]["vertexColors"])
         self.assertTrue(all(abs(y-blockout.TERRAIN_Y)<1e-9
                             for y in ground["positions"][1::3]))
+        self.assertEqual(by_name["illustrative-horizon-ridges"]["material"],
+                         ground["material"])
         self.assertEqual(len(by_name["street-tree-trunks"]["indices"]),
                          len(trees)*12*3)
         self.assertEqual(len(by_name["street-tree-canopies"]["indices"]),
-                         len(trees)*18*3)
+                         len(trees)*72*3)
+        self.assertEqual(len(by_name["street-tree-canopies"]["colors"]),
+                         len(by_name["street-tree-canopies"]["positions"]))
         self.assertEqual(len(by_name["street-lamp-posts"]["indices"]),
                          len(lamps)*48*3)
         self.assertEqual(len(by_name["street-lamp-lanterns"]["indices"]),
@@ -427,7 +465,8 @@ class MoatBlockoutTests(unittest.TestCase):
             self.assertEqual(asset["materials"][mesh["material"]]["name"],
                              {"street-tree-trunks":"street-tree-trunk",
                               "street-lamp-posts":"street-lamp-post"}[name])
-        self.assertEqual(materials["illustrative-ground"]["color"],"#73775a")
+        self.assertEqual(materials["illustrative-ground"]["color"],"#8c845f")
+        self.assertTrue(materials["illustrative-ground"]["vertexColors"])
         self.assertEqual(materials["street-tree-trunk"]["color"],"#6a4b34")
         self.assertEqual(materials["street-tree-canopy"]["color"],"#4f7a3e")
         self.assertEqual(materials["street-lamp-post"]["color"],"#3f332c")

@@ -343,7 +343,8 @@ bkcore.hexgl.tracks.Cityscape = {
 
 		ctx.manager.add("sky", sceneCube, cameraCube);
 
-		var ambient = 0xbbbbbb, diffuse = 0xffffff, specular = 0xffffff, shininess = 42, scale = 23;
+		var ambient = this.moatMode ? 0xd2c2ad : 0xbbbbbb;
+		var diffuse = this.moatMode ? 0xfff0dc : 0xffffff, specular = 0xffffff, shininess = 42, scale = 23;
 
 		// MAIN SCENE
 		var camera = new THREE.PerspectiveCamera( ctx.twoPlayer ? 78 : 70, viewAspect, 1, 60000 );
@@ -358,10 +359,23 @@ bkcore.hexgl.tracks.Cityscape = {
 		// The OSM blockout uses large flat-colour facades. At Cityscape's
 		// 1.5 intensity the sun-facing walls clip to white, so tone the moat
 		// down while leaving the original track untouched.
-		var sunIntensity = this.moatMode ? 1.1 : 1.5;
+		var sunIntensity = this.moatMode ? 0.95 : 1.5;
 		var sun = new THREE.DirectionalLight( diffuse, sunIntensity, 30000 );
 		sun.position.set( -4000, 1200, 1800 );
 		sun.lookAt(new THREE.Vector3());
+
+		// A warm fill light keeps the shaded side of the Lanna facades from
+		// collapsing to black. Cityscape keeps its original single sun.
+		if(this.moatMode)
+		{
+			var fill = new THREE.DirectionalLight( 0xffcfa6, 0.55, 30000 );
+			fill.position.set( 3600, 1600, -2400 );
+			fill.lookAt(new THREE.Vector3());
+			scene.add( fill );
+			// Match the sunset horizon so distant blocks melt into haze
+			// instead of ending in a hard ground/sky seam.
+			scene.fog = new THREE.Fog( 0xd9b88d, 700, 12000 );
+		}
 
 		// desktop + quality mid or high
 		// Shadows are disabled in split-screen to keep two scene renders fast.

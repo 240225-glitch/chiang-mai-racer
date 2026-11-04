@@ -261,6 +261,7 @@ console.log('PASS: 1/3/5 laps, checkpoint order, replay, camera, brake, matrix')
 // The converter uses #RRGGBB, while Three.js r50 Color accepts numeric hex only.
 {
   function Color(hex) { this.hex=hex; }
+  Color.prototype.setRGB=function(r,g,b){this.r=r;this.g=g;this.b=b;return this;};
   function Geometry() { this.vertices=[];this.faces=[];this.faceVertexUvs=[[]]; }
   Geometry.prototype.computeFaceNormals=Geometry.prototype.computeVertexNormals=
   Geometry.prototype.computeBoundingBox=Geometry.prototype.computeBoundingSphere=function(){};
@@ -268,16 +269,19 @@ console.log('PASS: 1/3/5 laps, checkpoint order, replay, camera, brake, matrix')
   function Mesh(g,m){this.geometry=g;this.material=m;}
   function Material(params){this.params=params;}
   const three={...THREE,Color,Geometry,Face3,Mesh,MeshPhongMaterial:Material,NoColors:0,
-    FrontSide:0,DoubleSide:2,ImageUtils:{loadTexture(url){return url;}}};
+    VertexColors:1,FrontSide:0,DoubleSide:2,ImageUtils:{loadTexture(url){return url;}}};
   const ctx=load('bkcore/threejs/StaticModelLoader.js',{THREE:three});
   const model=ctx.THREE.StaticModelLoader.build({
     format:'cmr-static-v1',name:'test',materials:[
       {color:'#c8322b',specular:'#123456',emissive:'#5f3f10'},
-      {color:'#ffffff'}
+      {color:'#ffffff'},
+      {color:'#8c845f',vertexColors:true}
     ],
     meshes:[
       {material:0,positions:[0,0,0,1,0,0,0,1,0],indices:[0,1,2]},
-      {material:1,positions:[0,0,0,1,0,0,0,1,0],indices:[0,1,2]}
+      {material:1,positions:[0,0,0,1,0,0,0,1,0],indices:[0,1,2]},
+      {material:2,positions:[0,0,0,1,0,0,0,1,0],indices:[0,1,2],
+       colors:[0.2,0.4,0.6,0.3,0.5,0.7,0.4,0.6,0.8]}
     ]
   });
   // Numbers only: r50's Color.set() zeroes a Color instance passed through
@@ -287,6 +291,16 @@ console.log('PASS: 1/3/5 laps, checkpoint order, replay, camera, brake, matrix')
   assert.equal(model.children[0].material.params.ambient,0x222222);
   assert.equal(model.children[0].material.params.emissive,0x5f3f10);
   assert.equal(model.children[1].material.params.emissive,0x000000);
+  // Procedural Lanna assets use per-vertex tints instead of extra materials.
+  const colored=model.children[2];
+  assert.equal(colored.material.params.vertexColors,1);
+  assert.equal(colored.geometry.colors.length,3);
+  assert.deepEqual([colored.geometry.colors[0].r,colored.geometry.colors[0].g,
+                    colored.geometry.colors[0].b],[0.2,0.4,0.6]);
+  const faceColors=colored.geometry.faces[0].vertexColors;
+  assert.equal(faceColors.length,3);
+  assert.equal(faceColors[2].r,0.4);
+  assert.equal(faceColors[2].b,0.8);
 }
 console.log('PASS: CC0 vehicle loading/fallback and r50 material colors');
 

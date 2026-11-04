@@ -57,6 +57,7 @@ class WatChediLuangTests(unittest.TestCase):
         names=[mesh["name"] for mesh in asset["meshes"]]
         for name in (
             "illustrative-ground",
+            "illustrative-horizon-ridges",
             "street-tree-trunks",
             "street-tree-canopies",
             "street-lamp-posts",
@@ -68,9 +69,13 @@ class WatChediLuangTests(unittest.TestCase):
         ):
             self.assertIn(name,names)
         total=sum(len(mesh["indices"])//3 for mesh in asset["meshes"])
-        self.assertGreater(total,23000)
-        self.assertLess(total,25000)
+        self.assertEqual(total,141434)
         by_name={mesh["name"]:mesh for mesh in asset["meshes"]}
+        ground_material=by_name["illustrative-ground"]["material"]
+        self.assertEqual(by_name["illustrative-horizon-ridges"]["material"],
+                         ground_material)
+        self.assertEqual(len(by_name["illustrative-horizon-ridges"]["colors"]),
+                         len(by_name["illustrative-horizon-ridges"]["positions"]))
         stupa=by_name["wat-chedi-luang-stupa"]
         self.assertAlmostEqual(min(stupa["positions"][1::3]),TERRAIN_Y,places=3)
         self.assertGreater(max(stupa["positions"][1::3]),38)

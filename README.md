@@ -3,7 +3,7 @@
 > 一个开源的 3D 街机竞速游戏：把泰国清迈古城护城河环线做成可玩的赛道。
 > 基于 [HexGL](https://github.com/BKcore/HexGL)（MIT）继续开发。
 
-**English** — Chiang Mai Racer is an arcade racer based on HexGL. The optional ?track=moat mode combines a 6.49 km OSM-derived outer road, 19 moat-water polygons, four mapped city gates, 815 roadside building footprints, a procedural Wat Chedi Luang landmark blockout, a flat illustrative ground plane, 81 low-poly trees and 81 original Lanna-style street lamps. The default Cityscape remains available. OSM-derived data is ODbL; road width, building heights, 3D landmark appearance, terrain and street-prop placement are stylized. Headless WebGL tests pass; real-GPU and field verification remain pending.
+**English** — Chiang Mai Racer is an arcade racer based on HexGL. The optional ?track=moat mode combines a 6.49 km OSM-derived outer road, 19 moat-water polygons, four mapped city gates, 815 roadside building footprints, a procedural Wat Chedi Luang landmark blockout, a warped illustrative ground grid with low-poly horizon ridges, 231 clustered low-poly trees and 109 original Lanna-style street lamps. The default Cityscape remains available. OSM-derived data is ODbL; road width, building heights, 3D landmark appearance, terrain and street-prop placement are stylized. Headless WebGL tests pass; real-GPU and field verification remain pending.
 
 ---
 
@@ -15,10 +15,10 @@
 | 车辆资产选型 | ✅ 已完成，确定「全低模 CC0」路线 |
 | 清迈地图方案 | ✅ 已确定「古城护城河环线」，全长约 6.54 km |
 | 旧版 Three.js 资产转换管线 | ✅ 原型完成：OBJ → JSON + 运行时加载器 + 预览页 |
-| 清迈赛道 | 🚧 M2 OSM 外圈道路（6.49 km、90 ways）、19 块水体、4 座城门、815 栋临街建筑、Wat Chedi Luang 低模地标，以及程序化地面、81 棵树和 81 盏原创 Lanna 路灯已接入 ?track=moat；真实 GPU 与现场核验待完成 |
+| 清迈赛道 | 🚧 M2 OSM 外圈道路（6.49 km、90 ways）、19 块水体、4 座城门、815 栋临街建筑、Wat Chedi Luang 低模地标，以及程序化暖色地面与远山、231 棵树和 109 盏原创 Lanna 路灯已接入 ?track=moat；真实 GPU 与现场核验待完成 |
 | 新车辆接入主游戏 | ✅ Cityscape 已接入 Grab3D / Kenney CC0 车型并通过 headless WebGL 冒烟；真实 GPU 和目标设备试玩待完成 |
 
-> 默认游戏仍使用 Cityscape；访问 ?track=moat 可进入清迈古城 M2/M3 开发测试模式。该模式包含 OSM 道路、水体、城门节点、815 栋临街建筑、Wat Chedi Luang 低模地标、示意地面、原创低模树木和 Lanna 风格路灯。道路宽度、建筑高度、建筑/地标三维外观、地面和街景道具位置有程序化示意成分；树木与路灯位置不对应 OSM 或真实现场设施。headless WebGL 冒烟通过，但真实 GPU、实地路况和人工完整驾驶尚未验收。数据来源见 [OSM 记录](docs/OSM-PROVENANCE.md)。
+> 默认游戏仍使用 Cityscape；访问 ?track=moat 可进入清迈古城 M2/M3 开发测试模式。该模式包含 OSM 道路、水体、城门节点、815 栋临街建筑、Wat Chedi Luang 低模地标、暖色示意地面与远山、原创低模树木和 Lanna 风格路灯。道路宽度、建筑高度、建筑/地标三维外观、地面和街景道具位置有程序化示意成分；树木与路灯位置不对应 OSM 或真实现场设施。headless WebGL 冒烟通过，但真实 GPU、实地路况和人工完整驾驶尚未验收。数据来源见 [OSM 记录](docs/OSM-PROVENANCE.md)。
 
 ## 目标
 
@@ -168,7 +168,7 @@ racing-game/
 | M0 | 调研、选型、建立公开仓库 |
 | M1 | OBJ → 自定义 JSON 转换器 + 运行时加载器，先接入 1 辆 CC0 车 |
 | M2 | 古城环线 blockout：道路、护城河、城墙、四座城门、碰撞 |
-| M3 | 临街建筑按路段分块合并；Wat Chedi Luang 已有基于 OSM 占地轮廓的原创低模 blockout；程序化地面、81 棵树和 81 盏 Lanna 路灯已接入；其它地标与街景细节待做 |
+| M3 | 临街建筑按路段分块合并并加入暖色立面、窗框与红瓦坡屋顶；Wat Chedi Luang 已有基于 OSM 占地轮廓的原创低模 blockout；程序化暖色地面、远山、231 棵树和 109 盏 Lanna 路灯已接入；其它地标与街景细节待做 |
 | M4 | 车辆与对手：主车、交通车、简单 AI |
 | M5 | 玩法整合：圈数、双人分屏、氮气、HUD、最佳成绩 |
 | M6 | 打磨：光照、雾、远景、音效、性能与发布 |
@@ -208,11 +208,12 @@ racing-game/
 
 ### M3 临街建筑、Wat Chedi Luang 与街景（2026-10-31 起，2026-11-04 更新）
 
-- 同一 OSM 快照筛选外环临街 80m 的 815 栋建筑轮廓，避开道路及历史城门；立面与屋顶按约 350m 路段分块合并为 38 个网格，避免整圈巨型包围盒拖慢 r50 裁剪。
+- 同一 OSM 快照筛选外环临街 80m 的 815 栋建筑轮廓，避开道路及历史城门；立面与屋顶按约 350m 路段分块合并为 38 个网格，避免整圈巨型包围盒拖慢 r50 裁剪。立面使用暖色顶点色、勒脚、木檐与窗框，屋顶改为红瓦攒尖/四坡/截顶四坡低模。
 - 新增 Wat Chedi Luang：从同一 OSM XML 提取寺院范围、古塔、Pra Wihan Luang、城柱庙四个 way（243018795、93413945、93413944、441418807），生成 4 张原创低模网格，约 230 个三角面。
-- 新增 `TERRAIN_Y=-0.25` 的 16 km 示意地面；建筑、城门、古塔/墙体、警告牌、树干和灯座统一落地。地面不是实测地形或高程数据。
-- 新增 81 棵原创低模树和 81 盏原创 Lanna 风格路灯，沿道路外侧约 10.2m 交替布置，并避让建筑、水体、城门和警告牌。它们由离线生成器放置，**不是** OSM 树木/灯具数据，也不代表真实市政设施位置；Lanna 外观为原创游戏美术示意。
-- 当前 `road.json` 合计 **20 materials / 75 meshes / 24,030 triangles**。OSM 没有提供三维模型或可靠高度；古塔 38.4m 的视觉高度、屋顶、立面、树形和灯具形制均为游戏示意，不是历史建筑复原。776 栋临街建筑高度同样是示意估算。
+- 新增 `TERRAIN_Y=-0.25` 的 16 km 变形地面网格（中心密、边缘疏）和两圈低模远山；建筑、城门、古塔/墙体、警告牌、树干和灯座统一落地。地面和远山不是实测地形或高程数据。
+- 新增 231 棵原创低模阔叶树和 109 盏原创 Lanna 风格路灯：树木每约 100m 成组布置，路灯保持约 60m 节奏，均避让建筑、水体、城门和警告牌。它们由离线生成器放置，**不是** OSM 树木/灯具数据，也不代表真实市政设施位置；Lanna 外观为原创游戏美术示意。
+- moat 模式改用柔和径向暗角，去掉原六边形蓝色屏幕纹理；环境光、太阳、暖色补光和雾统一调整为暖色清迈晨昏色调，Cityscape 分支保持原样。
+- 当前 `road.json` 合计 **20 materials / 76 meshes / 141,434 triangles**。OSM 没有提供三维模型或可靠高度；古塔 38.4m 的视觉高度、屋顶、立面、树形和灯具形制均为游戏示意，不是历史建筑复原。776 栋临街建筑高度同样是示意估算。
 - `tools/osm_wat_chedi_luang.py` 校验输入 XML 与道路数据的 SHA-256 一致后才导出地标平面轮廓；生成器重复运行结果字节一致。
 
 真实 GPU 性能、现场核验和人工驾驶仍未完成。来源和 ODbL 署名见 docs/OSM-PROVENANCE.md。

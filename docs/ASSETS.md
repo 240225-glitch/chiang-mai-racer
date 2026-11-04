@@ -182,7 +182,7 @@ tools/
 
 ## M3 临街建筑（2026-10-31）
 
-815 栋临街建筑平面轮廓来自 OSM 官方 API 同一 2026-10-31 XML 快照，ODbL 1.0，way IDs 和数据哈希记录在 assets/tracks/chiangmai-moat/source-buildings-osm.geojson。低模立面/屋顶由 tools/build_moat_blockout.py 合并生成，2 个 mesh；776 栋建筑高度为原创游戏示意估算，39 栋按 OSM building:levels 推算，均非实测建筑高度。详细数据来源和许可见 docs/OSM-PROVENANCE.md。
+815 栋临街建筑平面轮廓来自 OSM 官方 API 同一 2026-10-31 XML 快照，ODbL 1.0，way IDs 和数据哈希记录在 assets/tracks/chiangmai-moat/source-buildings-osm.geojson。低模立面/屋顶由 tools/build_moat_blockout.py 按约 350m 路段合并生成，共 38 个 mesh、100,826 个三角面；暖色顶点色立面、窗框和红瓦坡屋顶均为原创程序化美术。776 栋建筑高度为原创游戏示意估算，39 栋按 OSM building:levels 推算，均非实测建筑高度。详细数据来源和许可见 docs/OSM-PROVENANCE.md。
 
 
 ## 2026-10-31：Wat Chedi Luang 程序化地标 blockout

@@ -880,7 +880,6 @@ bkcore.hexgl.HexGL.prototype.initGameComposer = function()
 	this.composers.game = new THREE.EffectComposer( this.renderer, renderTarget );
 
 	var effectScreen = new THREE.ShaderPass( THREE.ShaderExtras[ "screen" ] );
-	effectScreen.renderToScreen = true;
 	var effectVignette = new THREE.ShaderPass( THREE.ShaderExtras[ "vignette" ] );
 
 	var effectHex = new THREE.ShaderPass( bkcore.threejs.Shaders[ "hexvignette" ] );
@@ -924,9 +923,26 @@ bkcore.hexgl.HexGL.prototype.initGameComposer = function()
 	// OR
 	// mobile + quality mid or high
 	if(this.quality > 0)
-		this.composers.game.addPass( effectHex );
+	{
+		if(this.track && this.track.moatMode)
+		{
+			// The arcade hex vignette tinted the OSM city blue and read as a
+			// screen-space texture. Keep only a faint photographic falloff.
+			effectVignette.uniforms[ 'offset' ].value = 0.9;
+			effectVignette.uniforms[ 'darkness' ].value = 0.22;
+			effectVignette.renderToScreen = true;
+			this.composers.game.addPass( effectVignette );
+		}
+		else
+		{
+			this.composers.game.addPass( effectHex );
+		}
+	}
 	else
+	{
+		effectScreen.renderToScreen = true;
 		this.composers.game.addPass( effectScreen );
+	}
 }
 
 bkcore.hexgl.HexGL.prototype.createMesh = function(parent, geometry, x, y, z, mat)

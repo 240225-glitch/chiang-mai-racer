@@ -66,9 +66,18 @@ class RoadsideBuildingsTests(unittest.TestCase):
                          [m["name"].split("-")[-1] for m in roofs])
         self.assertGreater(sum(len(m["indices"]) for m in walls),10000)
         self.assertGreater(sum(len(m["indices"]) for m in roofs),3000)
-        self.assertLess(sum(len(m["indices"])//3 for m in asset["meshes"]),26000)
-        self.assertLessEqual(max(max(m["positions"][1::3]) for m in roofs),30.04)
+        self.assertLess(sum(len(m["indices"])//3 for m in asset["meshes"]),150000)
+        self.assertLessEqual(max(max(m["positions"][1::3]) for m in roofs),30.06)
         self.assertGreaterEqual(min(min(m["positions"][1::3]) for m in walls),TERRAIN_Y)
+        facade_material=asset["materials"][walls[0]["material"]]
+        roof_material=asset["materials"][roofs[0]["material"]]
+        self.assertEqual(facade_material["name"],"osm-building-facades")
+        self.assertEqual(roof_material["name"],"osm-building-roofs")
+        self.assertTrue(facade_material["vertexColors"])
+        self.assertTrue(roof_material["vertexColors"])
+        for m in walls+roofs:
+            self.assertEqual(len(m["colors"]),len(m["positions"]),m["name"])
+            self.assertTrue(all(0.0<=c<=1.0 for c in m["colors"]),m["name"])
         # r50 uses distance from LOCAL ORIGIN for bounding spheres. Merely
         # splitting globally-positioned geometry would NOT improve culling.
         for m in chunks:
@@ -96,7 +105,7 @@ class RoadsideBuildingsTests(unittest.TestCase):
                           max(old["positions"][axis::3]))
                 for a,b in zip(actual,original):
                     self.assertAlmostEqual(a,b,places=3)
-        self.assertEqual(sum(len(m["indices"])//3 for m in asset["meshes"]),23800)
+        self.assertEqual(sum(len(m["indices"])//3 for m in asset["meshes"]),141204)
         # A simple square: facade normals face outward, roof normal faces +Y.
         walls,roofs=roadside_building_meshes([
             ([(0,0),(10,0),(10,10),(0,10)],6)
@@ -110,10 +119,26 @@ class RoadsideBuildingsTests(unittest.TestCase):
         self.assertLess(ux*vy-uy*vx,0)
         a,b,c=roofs["indices"][:3]
         p=roofs["positions"]
-        ax,az=p[3*a],p[3*a+2]
-        bx,bz=p[3*b],p[3*b+2]
-        cx,cz=p[3*c],p[3*c+2]
-        self.assertGreater((bz-az)*(cx-ax)-(bx-ax)*(cz-az),0)
+        # New roofs start with the downward-facing eave soffit. Scan all
+        # triangles for the hipped upper faces and check they face upward
+        # and away from the building centre.
+        upward=0
+        for i in range(0,len(roofs["indices"]),3):
+            a,b,c=roofs["indices"][i:i+3]
+            ax,ay,az=p[3*a:3*a+3]
+            bx,by,bz=p[3*b:3*b+3]
+            cx,cy,cz=p[3*c:3*c+3]
+            ux,uy,uz=bx-ax,by-ay,bz-az
+            vx,vy,vz=cx-ax,cy-ay,cz-az
+            nx=uy*vz-uz*vy
+            ny=uz*vx-ux*vz
+            nz=ux*vy-uy*vx
+            if ny<=1e-6:
+                continue
+            upward+=1
+            mx,mz=(ax+bx+cx)/3-5.0,(az+bz+cz)/3-5.0
+            self.assertGreater(nx*mx+nz*mz,0)
+        self.assertEqual(upward,4)
 
     def test_extractor_rejects_snapshot_mismatch_and_road_overlap(self):
         import osm_roadside_buildings as ex

@@ -50,7 +50,7 @@ python tools/obj2json.py assets-src/kenney/race-future.obj \
 ## OSM 外圈赛道（ODbL）
 
 - assets/tracks/chiangmai-moat/source-osm.geojson：2026-10-31 OSM 官方 API 提取的 90 个 way 的闭环中心线，数据许可 ODbL 1.0。
-- road.json、route.json、route-data.js：使用 tools/build_moat_blockout.py 默认从 source-osm.geojson 再生成，约 6.49 km；当前完整 OSM 场景 20 materials / 75 meshes / 24,030 triangles（含 19 块 OSM 水体、城门、建筑、Wat Chedi Luang、示意地面、树木和路灯）；不要手工改生成产物。
+- road.json、route.json、route-data.js：使用 tools/build_moat_blockout.py 默认从 source-osm.geojson 再生成，约 6.49 km；当前完整 OSM 场景 20 materials / 76 meshes / 141,434 triangles（含 19 块 OSM 水体、城门、暖色建筑、Wat Chedi Luang、变形地面、远山、231 棵树和 109 盏路灯）；不要手工改生成产物。
 - OSM 数据来源、原始 XML SHA 和重现方式：docs/OSM-PROVENANCE.md。
 - 水面来自 OSM water=moat 多边形；路宽与检查点仍是游戏示意；第三方地图数据不是 CC0。
 
@@ -59,4 +59,4 @@ python tools/obj2json.py assets-src/kenney/race-future.obj \
 
 ## M3 OSM 临街建筑（ODbL）
 
-source-buildings-osm.geojson：2026-10-31 同一 OSM XML 快照提取的 815 栋临街建筑轮廓，含 OSM way ID、ODbL 许可、源 XML SHA。39 栋高度按 OSM 楼层标签推算，776 栋为可复现的游戏估算；不能标成 CC0、实测建筑高度或历史外观。road.json 将立面/屋顶按约 350m 路段合并为 38 个网格；当前完整场景 20 materials / 75 meshes / 24,030 triangles（含游戏示意中心虚线、地面、81 棵树和 81 盏原创路灯）。地面、树木和路灯不是 OSM 实测数据；来源和复现见 docs/OSM-PROVENANCE.md。
+source-buildings-osm.geojson：2026-10-31 同一 OSM XML 快照提取的 815 栋临街建筑轮廓，含 OSM way ID、ODbL 许可、源 XML SHA。39 栋高度按 OSM 楼层标签推算，776 栋为可复现的游戏估算；不能标成 CC0、实测建筑高度或历史外观。road.json 将立面/屋顶按约 350m 路段合并为 38 个网格（合计 100,826 三角面）；当前完整场景 20 materials / 76 meshes / 141,434 triangles（含游戏示意中心虚线、变形地面、远山、231 棵树和 109 盏原创路灯）。暖色立面、窗框、红瓦坡屋顶、地面、远山、树木和路灯均为程序化游戏美术，不是 OSM 实测数据；来源和复现见 docs/OSM-PROVENANCE.md。

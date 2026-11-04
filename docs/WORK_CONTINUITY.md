@@ -802,3 +802,17 @@ tests/browser_smoke.py 增加第 8 场景：HTTP 测试服务器仅在内存里�
 - 测试：完整 Python **68/68**、`node tests/regressions.js` **4 组**、`node --check`、`python -m py_compile`、`git diff --check` 均通过。新增测试覆盖地面朝向/尺寸、OSM 场景门槛、道具数量/材质/网格三角形数、与道路/建筑/水体/城门/警告牌的净距，以及所有基座落地。
 - 内置浏览器实机验证：高画质 `?track=moat&quality=3` 与低画质 `?quality=0` 均加载 75 个道路子网格，地面 `#73775a`、Y `-0.25`，灯罩 `#f0c36b` / emissive `#5f3f10`；低画质确认无 Bloom，两个页面 console 无 error。用 canvas `toDataURL` 下载起点、东侧和西侧街景截图，确认地面、树木、路灯和落地建筑可见。浏览器截图 API 因窗口不可见失败，不能等同于完整 Selenium 冒烟、真实 GPU 或人工整圈验收。
 - 仍需真实 GPU、人工完整驾驶、OSM 现场道路/桥梁核验，以及完整 `tests/browser_smoke.py` 回归；本机缺少 Selenium，未在本轮运行该套件。原 HexGL CC BY-NC 与 MIT 目标的授权冲突仍未解决。
+
+## 2026-11-04 · M3 暖色清迈古城视觉返工（当前轮）
+
+- 本轮从 `ba2ed7e` 继续，先定位“M3 变丑”的来源：`bkcore/threejs/Shaders.js` 的蓝色六边形 `hexvignette` 在 moat 高/中画质全屏叠加，加上偏冷的环境光/太阳、平面地面、规则锥形树和平屋顶建筑，造成屏幕纹理感与空旷感。未回退上一轮地面/树木/路灯提交，直接在其上返工。
+- 暗角：`HexGL.js` 在 moat 且 `quality>0` 时改用 `THREE.ShaderExtras.vignette`（`offset=0.9`、`darkness=0.22`）；Cityscape 保留原 `hexvignette`，低画质保留 screen pass。moat Bloom 维持 `0.35`。
+- 光照：`Cityscape.js` moat 分支改为 ambient `0xd2c2ad`、太阳 `0xfff0dc` 强度 `0.95`、暖色补光 `0xffcfa6` 强度 `0.55`、雾 `0xd9b88d` 700–12000m；Cityscape 分支保持原 ambient/太阳/雾。
+- 建筑：`build_moat_blockout.py` 为 815 栋建筑加入暖白/赭黄/柚木等顶点色立面、深色勒脚、木檐、窗框与深色窗洞；屋顶改为红瓦攒尖/四坡/截顶四坡低模，超过 14m 的建筑保留平屋顶。38 个建筑网格合计 **100,826 tris**（85,648 立面 + 15,178 屋顶），未增加材质槽。
+- 地面与远景：16km 地面改为 64×64 变形网格，中心密、边缘疏，带暖土/草色顶点色；新增两圈共 128 段、512 tris 的低模远山环 `illustrative-horizon-ridges`，与地面共用 `illustrative-ground` 材质。
+- 街景：树木改为每约 100m 成组布置，共 **231 棵**；树冠由 3 个低模阔叶球团组成（每棵 72 tris），带三种绿色/暖色顶点色。路灯增至 **109 盏**，保持约 60m 节奏。起点闸门立柱收窄为 `0.9×6×0.9`、横梁 `18.4×0.85×0.75`，颜色改为 `#a87f4a`。
+- 材质：road `#504a42`、curb `#b99b79`、water `#3f7b70`、checkpoint `#a87f4a`、ground `#8c845f`、facade `#d8c6a4`、roof `#a3543d`；地面、远山、树冠、立面、屋顶和窗户均通过顶点色乘基色。`StaticModelLoader` 继续把 `colors` 写入 r50 `Face3.vertexColors`。
+- 资产：重新生成 `assets/tracks/chiangmai-moat/road.json` 为 **20 materials / 76 meshes / 141,434 triangles**；SHA256 `5dd61db28766fb0d8a7e8e4141971a843c0fe03017ec40f68e44bd0a441e242b`。连续运行生成器两次 SHA256 一致，`route.json` / `route-data.js` 未变。
+- 测试：完整 Python **69/69**、`node tests/regressions.js` **4 组**（新增顶点色加载断言）、相关 JS `node --check`、`python -m py_compile`、`git diff --check` 均通过。同步更新建筑三角数/屋顶绕序/顶点色、地标总数/远山，以及地面网格/树木/路灯断言。
+- 内置浏览器：高画质 `?track=moat&quality=3` 与低画质 `?quality=0` 均启动到 `step-4`，console 无 error；高画质确认无六边形暗角，窗框/红瓦、成组树木、远山和雾可见；默认 Cityscape 也加载正常并保留原六边形暗角。截图 API 在窗口不可见时失败，改用第二个 canvas `toDataURL` 下载图片验证，不等同于完整 Selenium/真实 GPU/人工整圈验收。
+- 仍需真实 GPU、人工完整驾驶、OSM 现场道路/桥梁核验和完整 `tests/browser_smoke.py`；本机缺 Selenium。原 HexGL CC BY-NC 与 MIT 目标的授权冲突仍未解决。

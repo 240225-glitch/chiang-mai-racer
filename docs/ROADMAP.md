@@ -1,7 +1,7 @@
 # 路线图 / Roadmap
 
-> 最后更新：2026-11-03
-> 当前阶段：**M2 OSM 外圈可玩原型；M3 已接入 815 栋临街建筑和 Wat Chedi Luang 程序化地标 blockout；Chrome 148 SwiftShader 已有 38 场景回归基线（真实 GPU、现场道路和人工完整驾驶仍待验收）**
+> 最后更新：2026-11-04
+> 当前阶段：**M2 OSM 外圈可玩原型；M3 已接入暖色临街建筑、变形地面/远山与街景；Chrome 148 SwiftShader 回归基线存在（真实 GPU、现场道路和人工完整驾驶仍待验收）**
 
 ## 已确定的决策
 
@@ -642,3 +642,15 @@ HTTP 200 且顶点位置/宽度正确的道路模型仍可能通过错接 `race-
 - [x] 资产重新生成为 **20 materials / 75 meshes / 24,030 triangles**，重复运行 SHA256 一致；`route.json` / `route-data.js` 未变。
 - [x] 回归覆盖地面、道具、落地、间距、材质与 `emissive`；完整 Python **68/68**、Node `tests/regressions.js` **4 组**、语法和 diff 检查通过。内置浏览器高/低画质实机加载无 console error，低画质无 Bloom。
 - [ ] 完整 Selenium 浏览器套件未在本机运行（缺 Selenium），真实 GPU、人工完整驾驶、OSM 现场道路/桥梁、树木/路灯真实位置与历史形制核验仍待完成。
+
+### 2026-11-04 · M3 暖色 Lanna 视觉返工
+
+- [x] 修复 moat 画面偏冷、六边形暗角像屏幕纹理的问题：高/中画质改用柔和径向 vignette（`offset=0.9`、`darkness=0.22`），Cityscape 保留原六边形暗角，低画质保留 screen pass。
+- [x] 重新调整 moat 光照：ambient `0xd2c2ad`、太阳 `0xfff0dc` 强度 `0.95`、暖色补光 `0xffcfa6` 强度 `0.55`、雾 `0xd9b88d` 700–12000m；Bloom 仍为 moat `0.35` / Cityscape `0.8`。
+- [x] 815 栋建筑加入暖色顶点色立面、勒脚、木檐、窗框，以及红瓦攒尖/四坡/截顶四坡屋顶；38 个建筑网格合计 100,826 tris，不增加材质槽。
+- [x] 地面改为 16km 变形网格（中心 64×64 密、边缘疏）并加暖土/草色顶点色；新增两圈 128 段低模远山环，和地面共用材质。
+- [x] 树木改为每约 100m 成组布置，共 231 棵，树冠为 3 个低模阔叶球团（72 tris/棵）；路灯增至 109 盏并保持约 60m 节奏。
+- [x] 重新生成资产：**20 materials / 76 meshes / 141,434 triangles**，重复运行 SHA256 一致；`route.json` / `route-data.js` 未变。
+- [x] 回归：完整 Python **69/69**、Node `tests/regressions.js` **4 组**（含顶点色加载）、`node --check`、`py_compile`、`git diff --check` 通过。
+- [x] 内置浏览器高画质 `?track=moat&quality=3` 与低画质 `?quality=0` 均加载成功，console 无 error；高画质确认无六边形暗角，建筑窗框/红瓦、成组树木、远山与雾生效，默认 Cityscape 保留原暗角。截图通过第二个 canvas `toDataURL` 下载，未等同于完整 Selenium 或真实 GPU 验收。
+- [ ] 继续真实 GPU、人工完整驾驶、OSM 现场道路/桥梁核验；本机缺 Selenium，完整 `tests/browser_smoke.py` 未在本轮运行。原 HexGL CC BY-NC 与 MIT 目标的授权冲突仍未解决。
